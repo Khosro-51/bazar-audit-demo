@@ -20,16 +20,25 @@ PATHS = {
 
 CRITERIA = {
     "GOOD": {
+        "exact_ids": ["SAMPLE_SIZE_LIMITED"],
         "max_high": 0,
+        "max_medium": 0,
         "systemic_inactive": True,
         "required_active": [],
     },
     "AVERAGE": {
+        "exact_ids": ["SESSION_TOXICITY", "SYMBOL_NO_EDGE", "POST_LOSS_FAST_REENTRY"],
         "systemic_inactive": True,
-        "required_active": ["SESSION_TOXICITY"],
-        "at_least_one_post_loss": True,
+        "required_active": ["SESSION_TOXICITY", "SYMBOL_NO_EDGE", "POST_LOSS_FAST_REENTRY"],
     },
     "PROBLEM": {
+        "exact_ids": [
+            "SYSTEMIC_UNDERPERFORMANCE",
+            "SESSION_TOXICITY",
+            "TRADE_COUNT_CLIFF",
+            "PAYOFF_IMBALANCE",
+            "SYMBOL_NO_EDGE",
+        ],
         "systemic_first": True,
         "required_active": ["SYSTEMIC_UNDERPERFORMANCE", "SESSION_TOXICITY"],
     },
@@ -57,6 +66,14 @@ def _failures_for_report(name, report):
         high_count = sum(1 for i in report.insights if i.severity.value == "HIGH")
         if high_count > cr["max_high"]:
             failures.append(f"{name} has {high_count} HIGH insights (expected {cr['max_high']})")
+
+    if "max_medium" in cr:
+        medium_count = sum(1 for i in report.insights if i.severity.value == "MEDIUM")
+        if medium_count > cr["max_medium"]:
+            failures.append(f"{name} has {medium_count} MEDIUM insights (expected {cr['max_medium']})")
+
+    if "exact_ids" in cr and ids != cr["exact_ids"]:
+        failures.append(f"{name} insight order mismatch: got {ids}, expected {cr['exact_ids']}")
 
     if cr.get("systemic_inactive") and "SYSTEMIC_UNDERPERFORMANCE" in ids:
         failures.append("SYSTEMIC_UNDERPERFORMANCE should be INACTIVE")
