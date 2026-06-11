@@ -28,7 +28,16 @@ APP_VERSION = "v1.1"
 # Access code: اول st.secrets، بعد env، بعد مقدار پیش‌فرض.
 # برای production مقدار را در Streamlit Cloud → App settings → Secrets بگذار:
 #   ACCESS_CODE = "..."
-DEFAULT_ACCESS_CODE = "BZR-9T4K-72QX"
+DEFAULT_ACCESS_CODE = "BZR-9T4K-72QX"  # کد مدیر — آپلود نامحدود
+
+# کدهای دعوت تسترها (هر کد = یک ارزیاب، سهمیه محدود).
+# قابل جایگزینی از Secrets با INVITE_CODES = "CODE1,CODE2,..."
+DEFAULT_INVITE_CODES = [
+    "BZR-T01-7F4K", "BZR-T02-X9Q2", "BZR-T03-M5RD", "BZR-T04-2VJN",
+    "BZR-T05-8PWZ", "BZR-T06-K3TY", "BZR-T07-Q6HB", "BZR-T08-5ZSC",
+    "BZR-T09-R8DG", "BZR-T10-4NXM",
+]
+MAX_UPLOADS_PER_CODE = 3
 
 BETA_USAGE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "beta_usage.json")
 MAX_UPLOAD_MB   = 5
@@ -119,6 +128,8 @@ T = {
         "beta_invalid_email": "Please enter a valid email address.",
         "beta_file_too_big": "File exceeds the 5MB limit.",
         "beta_already_used": "You have already used your free audit. Join the private beta to unlock more reports.",
+        "beta_quota_status": "Uploads used with this invite code: {used} of {max}",
+        "beta_quota_used":   "This invite code has used all its free audits ({max} of {max}). Contact us to unlock more reports.",
     },
     "fa": {
         "title":            "بازار آدیت",
@@ -186,6 +197,8 @@ T = {
         "beta_invalid_email": "یک ایمیل معتبر وارد کن.",
         "beta_file_too_big": "حجم فایل بیشتر از حد مجاز ۵ مگابایت است.",
         "beta_already_used": "شما گزارش رایگان خود را قبلاً استفاده کرده‌اید. برای گزارش‌های بیشتر به بتای خصوصی بپیوندید.",
+        "beta_quota_status": "آپلودهای استفاده‌شده با این کد دعوت: {used} از {max}",
+        "beta_quota_used":   "سهمیه این کد دعوت تمام شده است ({max} از {max}). برای گزارش‌های بیشتر با ما تماس بگیرید.",
     },
     "ar": {
         "title":            "Bazar Audit",
@@ -253,6 +266,8 @@ T = {
         "beta_invalid_email": "يرجى إدخال بريد إلكتروني صالح.",
         "beta_file_too_big": "حجم الملف يتجاوز الحد 5MB.",
         "beta_already_used": "لقد استخدمت تقريرك المجاني بالفعل. انضم إلى النسخة التجريبية الخاصة للحصول على المزيد من التقارير.",
+        "beta_quota_status": "الرفعات المستخدمة بهذا الرمز: {used} من {max}",
+        "beta_quota_used":   "استُنفدت حصة هذا الرمز ({max} من {max}). تواصل معنا للحصول على المزيد من التقارير.",
     },
 }
 
@@ -412,6 +427,17 @@ def get_access_code() -> str:
     except Exception:
         pass
     return os.getenv("BAZAR_ACCESS_CODE", DEFAULT_ACCESS_CODE).strip()
+
+
+def get_invite_codes() -> set:
+    """لیست کدهای دعوت: از st.secrets[INVITE_CODES] (جداشده با کاما) یا لیست پیش‌فرض."""
+    try:
+        if "INVITE_CODES" in st.secrets:
+            raw = str(st.secrets["INVITE_CODES"])
+            return {c.strip() for c in raw.split(",") if c.strip()}
+    except Exception:
+        pass
+    return set(DEFAULT_INVITE_CODES)
 
 
 def email_hash(email: str) -> str:
@@ -590,8 +616,13 @@ if not st.session_state.get("access_granted", False):
     st.subheader(tx["access_title"])
     code_in = st.text_input(tx["access_label"], type="password", key="access_input")
     if st.button(tx["access_btn"], key="access_submit"):
-        if code_in.strip() == get_access_code():
+        entered = code_in.strip()
+        is_admin  = entered == get_access_code()
+        is_invite = entered in get_invite_codes()
+        if is_admin or is_invite:
             st.session_state["access_granted"] = True
+            st.session_state["is_admin"]      = is_admin
+            st.session_state["invite_code"]   = entered
             st.rerun()
         else:
             st.error(tx["access_wrong"])
@@ -637,43 +668,56 @@ if DEMO_MODE:
         st.session_state.active_sample = chosen
         st.session_state["view"] = "sample"
 
+    # وضعیت سهمیه این کد دعوت
+    _code     = st.session_state.get("invite_code", "")
+    _is_admin = st.session_state.get("is_admin", False)
+    _usage    = load_beta_usage()
+    _used     = int(_usage.get(_code, {}).get("upload_count", 0))
+    if not _is_admin:
+        st.caption(tx["beta_quota_status"].format(used=_used, max=MAX_UPLOADS_PER_CODE))
+
     if beta_file is not None:
         email_ok = bool(beta_email) and "@" in beta_email and "." in beta_email.split("@")[-1]
-        if not email_ok:
+        sig = (beta_file.name, beta_file.size, (beta_email or "").strip().lower())
+        already_this_run = (
+            st.session_state.get("last_upload_sig") == sig
+            and st.session_state.get("beta_df") is not None
+        )
+        if already_this_run:
+            pass  # همین فایل قبلاً در این سشن audit شده؛ سهمیه دوباره کم نمی‌شود.
+        elif not email_ok:
             st.warning(tx["beta_invalid_email"])
         elif beta_file.size > MAX_UPLOAD_MB * 1024 * 1024:
             st.error(tx["beta_file_too_big"])
+        elif not _is_admin and _used >= MAX_UPLOADS_PER_CODE:
+            st.error(tx["beta_quota_used"].format(max=MAX_UPLOADS_PER_CODE))
         else:
-            h = email_hash(beta_email)
-            already_this_session = (
-                st.session_state.get("beta_hash") == h
-                and st.session_state.get("beta_df") is not None
-            )
-            if not already_this_session:
-                usage = load_beta_usage()
-                if h in usage:
-                    st.error(tx["beta_already_used"])
+            bdf = None
+            try:
+                # فقط در حافظه خوانده می‌شود؛ فایل CSV ذخیره نمی‌شود.
+                bdf = pd.read_csv(beta_file, parse_dates=['open_time', 'close_time'])
+            except Exception:
+                st.error(tx["csv_not_readable"])
+            if bdf is not None:
+                missing = sorted(UPLOAD_REQUIRED_COLS - set(bdf.columns))
+                if missing:
+                    st.error(f"{tx['missing_required']}: `{', '.join(missing)}`")
                 else:
-                    bdf = None
-                    try:
-                        # فقط در حافظه خوانده می‌شود؛ فایل CSV ذخیره نمی‌شود.
-                        bdf = pd.read_csv(beta_file, parse_dates=['open_time', 'close_time'])
-                    except Exception:
-                        st.error(tx["csv_not_readable"])
-                    if bdf is not None:
-                        missing = sorted(UPLOAD_REQUIRED_COLS - set(bdf.columns))
-                        if missing:
-                            st.error(f"{tx['missing_required']}: `{', '.join(missing)}`")
-                        else:
-                            now = datetime.now(timezone.utc).isoformat()
-                            usage[h] = {"upload_count": 1,
-                                        "first_upload_at": now,
-                                        "last_upload_at": now}
-                            save_beta_usage(usage)
-                            st.session_state["beta_df"] = bdf.sort_values('open_time').reset_index(drop=True)
-                            st.session_state["beta_hash"] = h
-                            st.session_state["beta_trader_id"] = beta_file.name.replace('.csv', '')
-                            st.session_state["view"] = "upload"
+                    now = datetime.now(timezone.utc).isoformat()
+                    rec = _usage.get(_code, {"upload_count": 0,
+                                             "first_upload_at": now,
+                                             "emails": []})
+                    rec["upload_count"] = int(rec.get("upload_count", 0)) + 1
+                    rec["last_upload_at"] = now
+                    eh = email_hash(beta_email)
+                    if eh not in rec.get("emails", []):
+                        rec.setdefault("emails", []).append(eh)
+                    _usage[_code] = rec
+                    save_beta_usage(_usage)
+                    st.session_state["beta_df"] = bdf.sort_values('open_time').reset_index(drop=True)
+                    st.session_state["beta_trader_id"] = beta_file.name.replace('.csv', '')
+                    st.session_state["last_upload_sig"] = sig
+                    st.session_state["view"] = "upload"
 
     # ── انتخاب منبع نمایش: آپلود کاربر یا پروفایل نمونه ──────────────────────
     view = st.session_state.get("view")
