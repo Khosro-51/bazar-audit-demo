@@ -1,11 +1,18 @@
 """
-Bazar Audit — Public Demo v0
+Bazar Audit — v1.1 (Private Beta)
 Multilingual: English (default) | فارسی | العربية
 Engine stays language-agnostic. Translation lives here only.
+
+v1.1:
+- Access Code gate (st.secrets["ACCESS_CODE"] → env BAZAR_ACCESS_CODE → default)
+- Private Upload Beta: one free audit per email (sha256 hash in beta_usage.json)
+- Visible APP_VERSION in sidebar for deploy verification
 """
+import hashlib
 import json
 import os
 import sys
+from datetime import datetime, timezone
 from html import escape
 import pandas as pd
 import streamlit as st
@@ -16,6 +23,15 @@ if BASE_DIR not in sys.path:
 
 # ── Config ────────────────────────────────────────────────────────────────────
 DEMO_MODE = True
+APP_VERSION = "v1.1"
+
+# Access code: اول st.secrets، بعد env، بعد مقدار پیش‌فرض.
+# برای production مقدار را در Streamlit Cloud → App settings → Secrets بگذار:
+#   ACCESS_CODE = "..."
+DEFAULT_ACCESS_CODE = "BZR-9T4K-72QX"
+
+BETA_USAGE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "beta_usage.json")
+MAX_UPLOAD_MB   = 5
 
 SAMPLE_FILES = {
     "good":    os.path.join(BASE_DIR, "sample_data", "bazar_sample_good_trader.csv"),
@@ -29,6 +45,7 @@ RECOMMENDED_COLS = {
     'initial_risk_amount', 'initial_sl', 'setup_tag', 'exit_reason',
     'mfe_R', 'mae_R', 'trade_index_in_day',
 }
+UPLOAD_REQUIRED_COLS = {'trade_id'} | REQUIRED_COLS
 SEV_ICON = {"HIGH": "🔴", "MEDIUM": "🟠", "LOW": "🟢"}
 
 # ── Language System ───────────────────────────────────────────────────────────
@@ -39,7 +56,7 @@ T = {
     "en": {
         "title":            "Bazar Audit",
         "language":         "Language",
-        "app_version":      "v0 — Public Demo",
+        "app_version":      "v1.1 — Private Beta",
         "subtitle":         "Discover what really drives your trading performance.",
         "disclaimer":       "Bazar does not provide buy/sell signals or financial advice. It analyzes trading performance, risk behavior, and strategy structure.",
         "pick_profile":     "Choose a sample trader profile",
@@ -92,11 +109,21 @@ T = {
         "insight_meta_n":   "n",
         "r_warning":        "pnl_R not found. R-based insights are disabled. Add initial_risk_amount or pnl_R for full analysis.",
         "coming_soon":      "📌 Upload your own trading history — coming soon for private beta.",
+        "access_title":     "🔒 Private Access",
+        "access_label":     "Enter access code",
+        "access_btn":       "Unlock",
+        "access_wrong":     "Invalid access code.",
+        "beta_header":      "🔬 Private Upload Beta",
+        "beta_privacy":     "You can upload one CSV file and receive one free Bazar Audit report. Bazar does not store your trading file in this demo. Do not upload sensitive live account data.",
+        "beta_email_label": "Your email",
+        "beta_invalid_email": "Please enter a valid email address.",
+        "beta_file_too_big": "File exceeds the 5MB limit.",
+        "beta_already_used": "You have already used your free audit. Join the private beta to unlock more reports.",
     },
     "fa": {
         "title":            "بازار آدیت",
         "language":         "زبان",
-        "app_version":      "نسخه دمو عمومی v0",
+        "app_version":      "نسخه v1.1 — بتای خصوصی",
         "subtitle":         "بفهم سود و ضرر معاملاتت واقعاً از کجا می‌آید.",
         "disclaimer":       "Bazar سیگنال خرید و فروش یا مشاوره سرمایه‌گذاری ارائه نمی‌دهد. Bazar عملکرد معاملاتی، رفتار ریسک و ساختار استراتژی را تحلیل می‌کند.",
         "pick_profile":     "یک تریدر نمونه را انتخاب کن",
@@ -149,11 +176,21 @@ T = {
         "insight_meta_n":   "تعداد",
         "r_warning":        "ستون pnl_R پیدا نشد. بینش‌های مبتنی بر R غیرفعال هستند. برای تحلیل کامل، initial_risk_amount یا pnl_R را اضافه کن.",
         "coming_soon":      "📌 آپلود تاریخچه معاملاتت — به‌زودی در نسخه بتا.",
+        "access_title":     "🔒 ورود خصوصی",
+        "access_label":     "کد دسترسی را وارد کن",
+        "access_btn":       "باز کردن",
+        "access_wrong":     "کد دسترسی نادرست است.",
+        "beta_header":      "🔬 آپلود خصوصی (بتا)",
+        "beta_privacy":     "شما می‌توانید یک فایل CSV آپلود کنید و یک گزارش رایگان Bazar Audit دریافت کنید. Bazar در این نسخه نمایشی فایل معاملاتی شما را ذخیره نمی‌کند. از آپلود اطلاعات حساس حساب واقعی خودداری کنید.",
+        "beta_email_label": "ایمیل شما",
+        "beta_invalid_email": "یک ایمیل معتبر وارد کن.",
+        "beta_file_too_big": "حجم فایل بیشتر از حد مجاز ۵ مگابایت است.",
+        "beta_already_used": "شما گزارش رایگان خود را قبلاً استفاده کرده‌اید. برای گزارش‌های بیشتر به بتای خصوصی بپیوندید.",
     },
     "ar": {
         "title":            "Bazar Audit",
         "language":         "اللغة",
-        "app_version":      "v0 — عرض عام",
+        "app_version":      "v1.1 — نسخة تجريبية خاصة",
         "subtitle":         "اكتشف ما الذي يقود أداء تداولك فعلياً.",
         "disclaimer":       "لا يقدم Bazar إشارات شراء أو بيع ولا نصائح استثمارية. يقوم Bazar بتحليل أداء التداول وسلوك المخاطر وبنية الاستراتيجية.",
         "pick_profile":     "اختر ملف متداول نموذجياً",
@@ -206,6 +243,16 @@ T = {
         "insight_meta_n":   "العدد",
         "r_warning":        "لم يتم العثور على pnl_R. تم تعطيل الرؤى المعتمدة على R. أضف initial_risk_amount أو pnl_R للتحليل الكامل.",
         "coming_soon":      "📌 رفع تاريخ تداولك الخاص — قريباً في النسخة التجريبية.",
+        "access_title":     "🔒 دخول خاص",
+        "access_label":     "أدخل رمز الوصول",
+        "access_btn":       "فتح",
+        "access_wrong":     "رمز الوصول غير صحيح.",
+        "beta_header":      "🔬 رفع خاص (تجريبي)",
+        "beta_privacy":     "يمكنك رفع ملف CSV واحد والحصول على تقرير Bazar Audit مجاني واحد. لا يقوم Bazar بتخزين ملف التداول الخاص بك في هذه النسخة التجريبية. يرجى عدم رفع بيانات حساسة لحساب تداول حقيقي.",
+        "beta_email_label": "بريدك الإلكتروني",
+        "beta_invalid_email": "يرجى إدخال بريد إلكتروني صالح.",
+        "beta_file_too_big": "حجم الملف يتجاوز الحد 5MB.",
+        "beta_already_used": "لقد استخدمت تقريرك المجاني بالفعل. انضم إلى النسخة التجريبية الخاصة للحصول على المزيد من التقارير.",
     },
 }
 
@@ -355,6 +402,39 @@ def get_insight_text(ins: dict, lang: str) -> tuple:
 
 
 # ── Engine Import ─────────────────────────────────────────────────────────────
+# ── Access Code + Beta Usage Helpers (v1.1) ───────────────────────────────────
+
+def get_access_code() -> str:
+    """اولویت: st.secrets[ACCESS_CODE] → env BAZAR_ACCESS_CODE → مقدار پیش‌فرض در کد."""
+    try:
+        if "ACCESS_CODE" in st.secrets:
+            return str(st.secrets["ACCESS_CODE"]).strip()
+    except Exception:
+        pass
+    return os.getenv("BAZAR_ACCESS_CODE", DEFAULT_ACCESS_CODE).strip()
+
+
+def email_hash(email: str) -> str:
+    """sha256 از ایمیل trim+lowercase شده — ایمیل خام هیچ‌جا ذخیره نمی‌شود."""
+    return hashlib.sha256(email.strip().lower().encode("utf-8")).hexdigest()
+
+
+def load_beta_usage() -> dict:
+    try:
+        with open(BETA_USAGE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_beta_usage(usage: dict) -> None:
+    try:
+        with open(BETA_USAGE_FILE, "w", encoding="utf-8") as f:
+            json.dump(usage, f, indent=2)
+    except Exception:
+        pass  # روی Streamlit Cloud فایل‌سیستم موقتی است؛ برای production از DB استفاده شود.
+
+
 ENGINE_ERROR = None
 try:
     from bazar_audit_engine import audit_from_df
@@ -505,6 +585,18 @@ st.markdown(f'<div class="hero-sub">{safe(tx["subtitle"])}</div>', unsafe_allow_
 st.markdown(f'<div class="disclaimer">{safe(tx["disclaimer"])}</div>', unsafe_allow_html=True)
 
 # ── Sample Picker / Upload ────────────────────────────────────────────────────
+# ── Access Gate (v1.1): بدون کد دسترسی، هیچ‌چیز باز نمی‌شود ─────────────────────
+if not st.session_state.get("access_granted", False):
+    st.subheader(tx["access_title"])
+    code_in = st.text_input(tx["access_label"], type="password", key="access_input")
+    if st.button(tx["access_btn"], key="access_submit"):
+        if code_in.strip() == get_access_code():
+            st.session_state["access_granted"] = True
+            st.rerun()
+        else:
+            st.error(tx["access_wrong"])
+    st.stop()
+
 if DEMO_MODE:
     st.subheader(tx["pick_profile"])
     st.caption(tx["pick_caption"])
@@ -528,26 +620,80 @@ if DEMO_MODE:
         st.markdown(f'<div class="sample-narrative problem">{safe(tx["prob_narrative"])}</div>',
                     unsafe_allow_html=True)
 
+    # ── Private Upload Beta (v1.1) ────────────────────────────────────────
     st.divider()
-    st.caption(tx["coming_soon"])
+    st.subheader(tx["beta_header"])
+    st.caption(tx["beta_privacy"])
+
+    col_e, col_u = st.columns([1, 2])
+    with col_e:
+        beta_email = st.text_input(tx["beta_email_label"], key="beta_email")
+    with col_u:
+        beta_file = st.file_uploader(tx["upload_label"], type=["csv"], key="beta_uploader")
 
     if "active_sample" not in st.session_state:
         st.session_state.active_sample = None
     if chosen:
         st.session_state.active_sample = chosen
+        st.session_state["view"] = "sample"
 
-    if st.session_state.active_sample is None:
+    if beta_file is not None:
+        email_ok = bool(beta_email) and "@" in beta_email and "." in beta_email.split("@")[-1]
+        if not email_ok:
+            st.warning(tx["beta_invalid_email"])
+        elif beta_file.size > MAX_UPLOAD_MB * 1024 * 1024:
+            st.error(tx["beta_file_too_big"])
+        else:
+            h = email_hash(beta_email)
+            already_this_session = (
+                st.session_state.get("beta_hash") == h
+                and st.session_state.get("beta_df") is not None
+            )
+            if not already_this_session:
+                usage = load_beta_usage()
+                if h in usage:
+                    st.error(tx["beta_already_used"])
+                else:
+                    bdf = None
+                    try:
+                        # فقط در حافظه خوانده می‌شود؛ فایل CSV ذخیره نمی‌شود.
+                        bdf = pd.read_csv(beta_file, parse_dates=['open_time', 'close_time'])
+                    except Exception:
+                        st.error(tx["csv_not_readable"])
+                    if bdf is not None:
+                        missing = sorted(UPLOAD_REQUIRED_COLS - set(bdf.columns))
+                        if missing:
+                            st.error(f"{tx['missing_required']}: `{', '.join(missing)}`")
+                        else:
+                            now = datetime.now(timezone.utc).isoformat()
+                            usage[h] = {"upload_count": 1,
+                                        "first_upload_at": now,
+                                        "last_upload_at": now}
+                            save_beta_usage(usage)
+                            st.session_state["beta_df"] = bdf.sort_values('open_time').reset_index(drop=True)
+                            st.session_state["beta_hash"] = h
+                            st.session_state["beta_trader_id"] = beta_file.name.replace('.csv', '')
+                            st.session_state["view"] = "upload"
+
+    # ── انتخاب منبع نمایش: آپلود کاربر یا پروفایل نمونه ──────────────────────
+    view = st.session_state.get("view")
+    if view == "upload" and st.session_state.get("beta_df") is not None:
+        df        = st.session_state["beta_df"]
+        trader_id = st.session_state.get("beta_trader_id", "beta_user")
+        source    = "upload"
+    elif st.session_state.active_sample is not None:
+        key      = st.session_state.active_sample
+        csv_path = SAMPLE_FILES[key]
+        trader_id = key.upper() + "_TRADER"
+        try:
+            df = pd.read_csv(csv_path, parse_dates=['open_time', 'close_time'])
+            df = df.sort_values('open_time').reset_index(drop=True)
+        except Exception as e:
+            st.error(f"{tx['sample_load_error']}: {e}")
+            st.stop()
+        source = "sample"
+    else:
         st.info(tx["choose_prompt"])
-        st.stop()
-
-    key      = st.session_state.active_sample
-    csv_path = SAMPLE_FILES[key]
-    trader_id = key.upper() + "_TRADER"
-    try:
-        df = pd.read_csv(csv_path, parse_dates=['open_time', 'close_time'])
-        df = df.sort_values('open_time').reset_index(drop=True)
-    except Exception as e:
-        st.error(f"{tx['sample_load_error']}: {e}")
         st.stop()
 
 else:
@@ -578,6 +724,7 @@ else:
         with st.expander(f"⚠️ {tx['missing_recommended']}"):
             st.warning(f"`{', '.join(missing_rec)}`")
     trader_id = uploaded.name.replace('.csv', '')
+    source = "upload"
 
 # ── Run Engine ────────────────────────────────────────────────────────────────
 with st.spinner(tx["analyzing"]):
@@ -598,8 +745,8 @@ tab_report, tab_data, tab_json = st.tabs([tx["tab_report"], tx["tab_data"], tx["
 # ════════════════════════════════════════════════════════════════════════════
 with tab_report:
 
-    # narrative banner
-    if DEMO_MODE:
+    # narrative banner — فقط برای پروفایل‌های نمونه، نه آپلود کاربر
+    if DEMO_MODE and source == "sample":
         key = st.session_state.active_sample
         narrative_map = {"good": tx["good_narrative"], "average": tx["avg_narrative"], "problem": tx["prob_narrative"]}
         color_map     = {"good": "#34d399", "average": "#fbbf24", "problem": "#f87171"}

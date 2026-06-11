@@ -8,3 +8,4 @@ venv/
 _archive/
 .pytest_cache/
 .tools/
+beta_usage.json

@@ -120,6 +120,62 @@ access code از st.secrets، بخش Private Upload Beta پشت قفل، email g
 
 ---
 
+## ۶ب — فاز ۳ اجرا شد (v1.1 — Access Gate + Private Upload Beta)
+
+تاریخ: 2026-06-11 (همان روز، بعد از فاز ۱)
+
+### ⚠️ کد دسترسی (محرمانه نگه دار)
+
+```
+BZR-9T4K-72QX
+```
+
+- اولویت خواندن کد: `st.secrets["ACCESS_CODE"]` ← متغیر محیطی `BAZAR_ACCESS_CODE` ← مقدار پیش‌فرض بالا (هاردکد در streamlit_app.py).
+- چون مقدار پیش‌فرض در کد است و ریپو روی GitHub می‌رود، **توصیه جدی:** در share.streamlit.io ← App ← Settings ← Secrets این را بگذار و یک مقدار متفاوت انتخاب کن:
+  ```toml
+  ACCESS_CODE = "کد-دلخواه-تو"
+  ```
+  در آن صورت کد داخل ریپو بی‌اثر می‌شود و کد واقعی فقط در Secrets است.
+
+### چطور بفهمیم نسخه جدید deploy شده؟ (حل مسئله اول تو)
+
+دو نشانه بصری واضح اضافه شد:
+1. **سایدبار** حالا «v1.1 — Private Beta» نشان می‌دهد (قبلاً «v0 — Public Demo» بود).
+2. اولین چیزی که می‌بینی صفحه قفل «🔒 Private Access» است — اگر اپ بدون قفل باز شد، یعنی هنوز نسخه قدیمی بالاست.
+از این به بعد هر تغییر مهم، APP_VERSION را بالا می‌بریم تا همیشه با چشم قابل تأیید باشد.
+
+### چه چیزی پیاده شد (طبق spec موجود در ENGINEERING_NOTES)
+
+| مورد spec | وضعیت |
+|---|---|
+| بدون access code اپ باز نشود | ✅ گیت قبل از همه‌چیز؛ بعد از ورود موفق `st.session_state["access_granted"]=True` |
+| سه دموی نمونه حفظ شود | ✅ دست‌نخورده |
+| Private Upload Beta با email | ✅ بخش 🔬 زیر دموها |
+| هر email فقط یک بار | ✅ sha256(trim+lowercase) در `beta_usage.json`؛ بار دوم پیام «You have already used your free audit...» |
+| فقط CSV، حداکثر 5MB | ✅ |
+| ستون‌های ضروری | ✅ trade_id + open_time + close_time + symbol + side + pnl + session (side و session را موتور لازم دارد؛ لیست notes ناقص بود) |
+| CSV ذخیره نشود | ✅ فقط در حافظه؛ فقط hash و شمارنده در beta_usage.json |
+| متن privacy سه‌زبانه | ✅ دقیقاً متن‌های notes |
+| Disclaimer و سه‌زبانگی و RTL | ✅ دست‌نخورده |
+
+فایل‌های تغییریافته: `streamlit_app.py` (گیت + بتا + نسخه)، `.gitignore` (beta_usage.json اضافه شد تا hash کاربرها به GitHub نرود). موتور و تست‌ها دست نخوردند.
+
+### محدودیت مهم (صادقانه)
+
+روی Streamlit Cloud فایل‌سیستم موقتی است: با هر reboot/redeploy، `beta_usage.json` پاک می‌شود و ایمیل‌های مصرف‌شده دوباره آزاد می‌شوند. برای بتای کنترل‌شده کوچک قابل قبول است (خود notes هم همین را پذیرفته)، اما برای production باید Supabase/PostgreSQL جایگزین شود.
+
+### چک‌لیست تست دستی قبل از push (طبق notes)
+
+1. `python -m streamlit run streamlit_app.py` → بدون کد، اپ باید قفل باشد.
+2. با کد `BZR-9T4K-72QX` باز شود.
+3. سه دمو درست کار کنند.
+4. آپلود با یک ایمیل جدید + یکی از CSVهای sample_data → گزارش بدهد.
+5. همان ایمیل برای بار دوم (بعد از ریفرش صفحه) → block شود.
+6. `beta_usage.json` را باز کن → فقط hash باشد، نه ایمیل خام.
+7. بعد push (همان دستورات git با `--git-dir=.codex-git-meta`).
+
+---
+
 ## ۷. کارهای باقی‌مانده برای خودت
 
 1. اجرای `python -m pytest tests/test_all.py` روی سیستم خودت برای تأیید نهایی.
