@@ -16,6 +16,13 @@ from datetime import datetime, timezone
 from html import escape
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
+
+try:
+    import plotly.graph_objects as go
+    HAS_PLOTLY = True
+except Exception:
+    HAS_PLOTLY = False
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if BASE_DIR not in sys.path:
@@ -42,6 +49,79 @@ MAX_UPLOADS_PER_CODE = 3
 BETA_USAGE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "beta_usage.json")
 ASSIGN_FILE     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "code_assignments.json")
 MAX_UPLOAD_MB   = 5
+
+# ── صحنه سه‌بعدی صفحه ورود (Three.js) ────────────────────────────────────────
+HERO_3D = """
+<div id="bz3d" style="width:100%;height:300px;background:#07090C;border:1px solid #1C2530;
+     border-radius:8px;overflow:hidden;position:relative">
+  <div style="position:absolute;top:14px;left:18px;font-family:monospace;font-size:10px;
+       letter-spacing:3px;color:#00E5A0;z-index:2;opacity:.9">BAZAR · LIVE DIAGNOSTIC SPACE</div>
+  <div style="position:absolute;bottom:12px;right:18px;font-family:monospace;font-size:9px;
+       letter-spacing:2px;color:#5B6B7C;z-index:2">EDGE · RISK · BEHAVIOR</div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const el = document.getElementById('bz3d');
+const W = el.clientWidth, H = el.clientHeight;
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x07090C, 18, 42);
+const cam = new THREE.PerspectiveCamera(60, W/H, .1, 100);
+cam.position.set(0, 3.2, 16);
+const ren = new THREE.WebGLRenderer({antialias:true});
+ren.setSize(W, H); ren.setClearColor(0x07090C);
+el.appendChild(ren.domElement);
+
+// کف شبکه‌ای پرسپکتیو
+const grid = new THREE.GridHelper(80, 50, 0x00E5A0, 0x10271F);
+grid.position.y = -4; scene.add(grid);
+
+// هسته سیمی دولایه (مغز تحلیلگر)
+const ico = new THREE.Mesh(
+  new THREE.IcosahedronGeometry(3.4, 1),
+  new THREE.MeshBasicMaterial({color:0x00E5A0, wireframe:true, transparent:true, opacity:.55}));
+scene.add(ico);
+const ico2 = new THREE.Mesh(
+  new THREE.IcosahedronGeometry(4.6, 0),
+  new THREE.MeshBasicMaterial({color:0x0E4534, wireframe:true, transparent:true, opacity:.35}));
+scene.add(ico2);
+
+// ذرات معلق داده
+const N=900, pos=new Float32Array(N*3);
+for(let i=0;i<N*3;i++) pos[i]=(Math.random()-.5)*46;
+const pg=new THREE.BufferGeometry();
+pg.setAttribute('position', new THREE.BufferAttribute(pos,3));
+const pts=new THREE.Points(pg, new THREE.PointsMaterial({color:0x00E5A0,size:.07,transparent:true,opacity:.5}));
+scene.add(pts);
+
+// حلقه کندل‌های سه‌بعدی دور هسته
+const bars = new THREE.Group();
+for(let i=0;i<36;i++){
+  const h = .6+Math.random()*2.6;
+  const up = Math.random()>.45;
+  const m = new THREE.Mesh(new THREE.BoxGeometry(.18,h,.18),
+    new THREE.MeshBasicMaterial({color: up?0x00E5A0:0xFF4757, transparent:true, opacity:.8}));
+  const a = i/36*Math.PI*2;
+  m.position.set(Math.cos(a)*7.5, -4+h/2, Math.sin(a)*7.5);
+  bars.add(m);
+}
+scene.add(bars);
+
+let t=0;
+function loop(){
+  requestAnimationFrame(loop);
+  t+=.004;
+  ico.rotation.y=t*1.6; ico.rotation.x=t*.7;
+  ico2.rotation.y=-t;   ico2.rotation.x=t*.4;
+  pts.rotation.y=t*.25;
+  bars.rotation.y=t*.5;
+  cam.position.x=Math.sin(t*.6)*1.2;
+  cam.lookAt(0,0,0);
+  ren.render(scene,cam);
+}
+loop();
+window.addEventListener('resize',()=>{const w=el.clientWidth;ren.setSize(w,H);cam.aspect=w/H;cam.updateProjectionMatrix();});
+</script>
+"""
 
 SAMPLE_FILES = {
     "good":    os.path.join(BASE_DIR, "sample_data", "bazar_sample_good_trader.csv"),
@@ -137,6 +217,8 @@ T = {
         "req_code_msg":      "Your personal access code (save it for future logins):",
         "req_use_hint":      "Now enter this code in the field below and press Unlock.",
         "req_full":          "Free beta capacity is full. Paid access is coming soon — leave us your email and we will contact you.",
+        "viz3d_header":      "🧊 3D Trade Map",
+        "viz3d_caption":     "Every trade in 3D space: hour of day × trading day × result. Drag to rotate, scroll to zoom — clusters of red show exactly where your account bleeds.",
     },
     "fa": {
         "title":            "بازار آدیت",
@@ -212,6 +294,8 @@ T = {
         "req_code_msg":      "کد دسترسی شخصی شما (برای ورودهای بعدی نگه‌اش دار):",
         "req_use_hint":      "حالا همین کد را در کادر پایین وارد کن و Unlock را بزن.",
         "req_full":          "ظرفیت بتای رایگان تکمیل شده است. دسترسی پولی به‌زودی فعال می‌شود — ایمیلت ثبت شد و با تو تماس می‌گیریم.",
+        "viz3d_header":      "🧊 نقشه سه‌بعدی معاملات",
+        "viz3d_caption":     "هر معامله در فضای سه‌بعدی: ساعت روز × روز معاملاتی × نتیجه. بچرخان و زوم کن — خوشه‌های قرمز دقیقاً جایی است که حسابت خونریزی می‌کند.",
     },
     "ar": {
         "title":            "Bazar Audit",
@@ -287,6 +371,8 @@ T = {
         "req_code_msg":      "رمز الوصول الخاص بك (احتفظ به للدخول لاحقاً):",
         "req_use_hint":      "الآن أدخل هذا الرمز في الحقل أدناه واضغط Unlock.",
         "req_full":          "اكتملت سعة النسخة التجريبية المجانية. الوصول المدفوع قادم قريباً — تم تسجيل بريدك وسنتواصل معك.",
+        "viz3d_header":      "🧊 خريطة الصفقات ثلاثية الأبعاد",
+        "viz3d_caption":     "كل صفقة في فضاء ثلاثي الأبعاد: ساعة اليوم × يوم التداول × النتيجة. أدر وكبّر — التجمعات الحمراء تُظهر أين ينزف حسابك بالضبط.",
     },
 }
 
@@ -752,6 +838,9 @@ st.markdown(f'<div class="disclaimer">{safe(tx["disclaimer"])}</div>', unsafe_al
 # ── Sample Picker / Upload ────────────────────────────────────────────────────
 # ── Access Gate (v1.1): بدون کد دسترسی، هیچ‌چیز باز نمی‌شود ─────────────────────
 if not st.session_state.get("access_granted", False):
+    # ── صحنه سه‌بعدی ورودی ──────────────────────────────────────────────────────
+    components.html(HERO_3D, height=312)
+
     # ── گام ۱: ثبت ایمیل و دریافت کد رایگان (۱۰ ظرفیت بتا) ────────────────────
     st.subheader(tx["req_header"])
     st.caption(tx["req_caption"])
@@ -1027,6 +1116,46 @@ with tab_report:
                                      if not isinstance(v, (int, float, type(None))) or isinstance(v, bool)}
                     if complex_items:
                         st.json(complex_items)
+
+    # ── نقشه سه‌بعدی معاملات (v1.1) ────────────────────────────────────────────
+    if HAS_PLOTLY and 'open_time' in df.columns and len(df) > 0:
+        st.divider()
+        st.subheader(tx["viz3d_header"])
+        st.caption(tx["viz3d_caption"])
+        try:
+            _p = df.copy()
+            _p['hour'] = _p['open_time'].dt.hour + _p['open_time'].dt.minute / 60.0
+            _p['day']  = (_p['open_time'] - _p['open_time'].min()).dt.days
+            zcol = 'pnl_R' if ('pnl_R' in _p.columns and _p['pnl_R'].notna().all()) else 'pnl'
+            _w = _p[_p['pnl'] > 0]
+            _l = _p[_p['pnl'] <= 0]
+            fig = go.Figure()
+            for _grp, _name, _color in ((_w, 'WIN', '#00E5A0'), (_l, 'LOSS', '#FF4757')):
+                fig.add_trace(go.Scatter3d(
+                    x=_grp['hour'], y=_grp['day'], z=_grp[zcol],
+                    mode='markers', name=_name,
+                    marker=dict(size=4, color=_color, opacity=0.75,
+                                line=dict(width=0)),
+                    text=_grp['symbol'] if 'symbol' in _grp.columns else None,
+                    hovertemplate='%{text}<br>hour=%{x:.1f} | day=%{y} | ' + zcol + '=%{z}<extra></extra>',
+                ))
+            _ax = dict(backgroundcolor='#0D1117', gridcolor='#1C2530',
+                       zerolinecolor='#2A3A4A', color='#5B6B7C')
+            fig.update_layout(
+                template='plotly_dark',
+                paper_bgcolor='#07090C',
+                scene=dict(
+                    xaxis=dict(title='HOUR', **_ax),
+                    yaxis=dict(title='DAY',  **_ax),
+                    zaxis=dict(title=zcol.upper(), **_ax),
+                ),
+                margin=dict(l=0, r=0, t=10, b=0), height=520,
+                legend=dict(font=dict(family='JetBrains Mono', color='#C9D4DF'),
+                            bgcolor='rgba(13,17,23,.7)'),
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        except Exception:
+            pass  # نمودار تزئینی است؛ هرگز نباید گزارش را بشکند.
 
 # ════════════════════════════════════════════════════════════════════════════
 with tab_data:
