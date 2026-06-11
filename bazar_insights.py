@@ -346,8 +346,8 @@ def insight_drawdown_recovery(df: pd.DataFrame, metrics: dict):
 # ── 6. PAYOFF IMBALANCE ───────────────────────────────────────────────────────
 
 def insight_payoff_imbalance(df: pd.DataFrame, metrics: dict):
-    mode = metrics["r_mode"]
-    if mode == 'full':
+    # v1.1: اگر متریک‌های R موجود باشند (full یا computed) از R استفاده کن
+    if metrics.get("avg_win_R") is not None:
         avg_w = metrics["avg_win_R"]  or 0
         avg_l = abs(metrics["avg_loss_R"] or 0)
         unit  = "R"

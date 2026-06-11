@@ -1,0 +1,128 @@
+# گزارش ارزیابی و ارتقای Bazar Audit Engine — فاز ۱
+
+تاریخ: 2026-06-11 | نسخه: v1.0 → v1.1
+
+از این پس همه نظرات، نتایج و پلن‌ها در همین فایل (یا فایل‌های گزارش بعدی) ثبت می‌شود، نه در چت.
+
+---
+
+## ۱. تنظیمات حفظ‌شده (قبل از تغییر)
+
+| مورد | وضعیت |
+|---|---|
+| پورت لوکال‌هاست | **8501** (پیش‌فرض Streamlit — هیچ `.streamlit/config.toml` در پروژه وجود ندارد). آدرس اجرا: `http://localhost:8501` |
+| Access Code | **وجود ندارد.** ENGINEERING_NOTES آن را توصیف کرده ولی هرگز در کد پیاده نشده. در `streamlit_app.py` مقدار `DEMO_MODE = True` هاردکد است و هیچ قفلی نیست. چیزی برای حفظ‌کردن نبود. |
+| secrets.toml | وجود ندارد |
+| نحوه اجرا (بدون تغییر) | `streamlit run streamlit_app.py` |
+
+هیچ تغییری در `streamlit_app.py` داده نشد؛ اپ دقیقاً مثل قبل روی همان پورت بالا می‌آید.
+
+---
+
+## ۲. امتیاز وضعیت v1.0 (قبل از ارتقا)
+
+**امتیاز کلی: 5/10**
+
+| بُعد | امتیاز | دلیل |
+|---|---|---|
+| اعتبار آماری insights | 3.5 | selection bias، آستانه‌های دلخواه، confidence جعلی |
+| کیفیت کد | 5 | duplication، کد مرده، crash پنهان |
+| محصول/UI دمو | 7 | چندزبانه، JSON contract، narrative خوب |
+| تست | 5 | فقط regression روی ۳ CSV منجمد |
+| فاصله مستندات تا واقعیت | 4 | ENGINEERING_NOTES چیزی را توصیف می‌کند که وجود ندارد |
+
+---
+
+## ۳. تغییرات اعمال‌شده در فاز ۱
+
+### bazar_audit_engine.py (بازنویسی کامل → v1.1)
+- حذف `sys.path.insert(0, '/home/claude/bazar_v1')` — مسیر مرده باقی‌مانده از سشن AI روی لینوکس که روی ویندوز بی‌معنا بود. جایگزین: مسیر نسبی `BASE_DIR`.
+- ادغام `run_audit` و `audit_from_df`: قبلاً دو کپی تقریباً یکسان از کل pipeline وجود داشت (ریسک واگرایی باگ). حالا یک هسته واحد (`audit_from_df`) هست و `run_audit` فقط CSV را بارگذاری و به آن می‌سپارد.
+- اعتبارسنجی ستون‌های ضروری داخل موتور (`validate_columns`): قبلاً `audit_from_df` هیچ اعتبارسنجی نداشت و CSV بدون ستون `session` باعث KeyError خام می‌شد. حالا ValueError با پیام واضح می‌دهد.
+- لیست لایه‌ها به ثابت‌های ماژول (`STRATEGIC_INSIGHTS`, `BEHAVIORAL_INSIGHTS`) منتقل شد.
+
+### bazar_metrics.py (بازنویسی → v1.1)
+- **رفع باگ «وعده بدون اجرا»:** حالت `r_mode='computed'` قبلاً فقط یک برچسب بود — به کاربر می‌گفت «ستون initial_risk_amount اضافه کن تا تحلیل کامل شود» اما هیچ متریک R محاسبه نمی‌شد. حالا تابع `_r_series` در حالت computed مقدار `pnl_R = pnl / initial_risk_amount` را واقعاً محاسبه می‌کند و همه متریک‌های R (expectancy_R، payoff_R و...) تولید می‌شوند.
+
+### bazar_insights.py (تغییر جزئی)
+- `insight_payoff_imbalance` حالا اگر متریک R موجود باشد (full **یا** computed) از R استفاده می‌کند، نه فقط full.
+
+### ساختار پروژه
+- پنج پوشه خالی دکوری (`Behavioral Risk Layer`، `Core Performance Layer`، `Data Quality Layer`، `Edge Attribution Layer`، `Strategic Diagnosis Layer`)، پوشه خالی `gitmeta` و فایل تکراری `streamlit_app_multilingual.py` به `_archive/` منتقل شدند. هیچ‌چیز حذف نشد؛ اگر مطمئن شدی لازم نیستند، `_archive` را پاک کن.
+- پوشه `.codex-git-meta` دست‌نخورده ماند (تاریخچه git پروژه داخل آن است؛ ساختار git این پروژه غیراستاندارد است — برای push بعدی باید تکلیفش روشن شود).
+- ابزار جدید: `tools/monte_carlo_validation.py` (شرح در بخش ۵).
+
+### فایل‌های بدون تغییر
+`streamlit_app.py`، `bazar_schema.py`، `tests/test_all.py`، هر سه CSV نمونه، `requirements.txt`، `README.md`.
+
+---
+
+## ۴. نتیجه تست‌ها
+
+کل پروژه (با کدهای جدید) در محیط ایزوله Linux با Python 3.10 / pandas 2.3 / numpy 2.2 اجرا شد:
+
+```
+python -m pytest tests/test_all.py  →  2 passed in 0.93s
+```
+
+هر سه سناریوی پذیرش (GOOD / AVERAGE / PROBLEM) دقیقاً مثل قبل pass می‌شوند؛ JSON contract نشکسته. **توصیه:** خودت هم یک بار `python -m pytest tests/test_all.py` و بعد `streamlit run streamlit_app.py` را اجرا و سه دمو را چک کن.
+
+---
+
+## ۵. نتیجه تست Monte Carlo — مهم‌ترین یافته این گزارش
+
+**روش:** ۶۰۰ تریدر مصنوعی کاملاً تصادفی ساخته شد — `pnl_R ~ N(0,1)`، بدون هیچ edge، بدون هیچ الگوی رفتاری، سشن و نماد تصادفی، ۱۲۰ معامله هرکدام. هر insight ای که موتور به این تریدرها بدهد، طبق تعریف false positive است.
+
+**نتیجه:**
+
+| سنجه | مقدار |
+|---|---|
+| تریدرهای تصادفی که حداقل یک insight رفتاری MEDIUM/HIGH گرفتند | **99.0٪** |
+| تریدرهای تصادفی که insight با شدت HIGH گرفتند | **11.2٪** |
+
+| insight | تعداد شلیک از ۶۰۰ تریدر تصادفی | نرخ |
+|---|---|---|
+| SYMBOL_NO_EDGE | 564 | 94٪ |
+| SESSION_TOXICITY | 555 | 93٪ |
+| TRADE_COUNT_CLIFF | 183 | 31٪ |
+| PAYOFF_IMBALANCE | 140 | 23٪ |
+| POST_LOSS_FAST_REENTRY | 98 | 16٪ |
+| POST_LOSS_DECAY | 5 | <1٪ |
+| SYSTEMIC_UNDERPERFORMANCE | 2 | <1٪ |
+
+**تفسیر بی‌تعارف:** موتور فعلی به ۹۹٪ تریدرهایی که هیچ مشکلی ندارند می‌گوید مشکل داری. دلیلش ریاضی است، نه باگ: وقتی «بدترین سشن از بین ۴ سشن» را انتخاب می‌کنی و تنها شرطت `avg_pnl < 0` با حداقل ۵ معامله است، روی داده تصادفی تقریباً همیشه یک گروه منفی پیدا می‌شود (selection bias / multiple comparisons). SYMBOL_NO_EDGE هم همین مشکل را عیناً دارد. فقط دو insight (SYSTEMIC و POST_LOSS_DECAY) رفتار آماری سالم دارند.
+
+این یعنی: تا قبل از فاز ۲، خروجی insight های سشن/نماد/cliff را به هیچ کاربر واقعی به‌عنوان «یافته» نفروش. دمو اشکالی ندارد چون داده‌هایش دست‌ساز و الگودار است؛ روی داده واقعی، موتور فعلی نویز را سیگنال می‌کند.
+
+**نکته مثبت:** SYSTEMIC_UNDERPERFORMANCE (مهم‌ترین ادعای محصول) فقط 0.3٪ false positive دارد — هسته استراتژیک سالم است.
+
+اجرای مجدد تست هر زمان: `python tools/monte_carlo_validation.py 1000`
+
+---
+
+## ۶. پلن فازهای بعدی
+
+### فاز ۲ — اعتبار آماری (اولویت مطلق، پیش‌نیاز هر beta واقعی)
+هدف کمّی: رساندن false positive rate از ۹۹٪ به زیر ۱۰٪.
+
+1. برای SESSION_TOXICITY و SYMBOL_NO_EDGE: تست permutation — برچسب سشن/نماد را ۱۰۰۰ بار شافل کن؛ insight فقط وقتی فعال شود که زیان گروه واقعی از ۹۵٪ شافل‌ها بدتر باشد.
+2. تصحیح multiple comparisons (Benjamini–Hochberg) چون چند insight همزمان تست می‌شوند.
+3. حداقل effect size بر حسب R (نه دلار): آستانه‌هایی مثل `avg_pnl < -60$` وابسته به سایز حساب‌اند و باید مثلاً `< -0.5R` شوند.
+4. فیلد `confidence` به p-value یا فاصله اطمینان bootstrap واقعی وصل شود — الان فقط `n >= 15 → HIGH` است.
+5. تست Monte Carlo به‌عنوان تست دائمی در pytest اضافه شود (مثلاً assert fp_rate < 0.10) تا هیچ تغییری دوباره موتور را نویزی نکند.
+6. توجه: بعد از فاز ۲ احتمالاً معیارهای پذیرش سه دموی فعلی باید بازتنظیم شوند، چون insight های فعلیِ AVERAGE با متد آماری سخت‌گیرتر ممکن است غیرفعال شوند. این هزینه درستی است.
+
+### فاز ۳ — محصول (همان spec موجود در ENGINEERING_NOTES، این بار واقعی)
+access code از st.secrets، بخش Private Upload Beta پشت قفل، email gate با sha256 hash در beta_usage.json، محدودیت یک آپلود به ازای هر email، حداکثر 5MB، عدم ذخیره CSV. برای production به جای فایل محلی، Supabase/PostgreSQL.
+
+### فاز ۴ — مسیر ML (هدف بلندمدت تو)
+موتور rule-based فعلی baseline درست برای مدل ماشینی است. شبکه عصبی را قبل از دو پیش‌نیاز وارد نکن: (الف) baseline آماری معتبر (فاز ۲)، (ب) داده برچسب‌دار از beta واقعی (کدام insight برای کاربر مفید بود). بدون این دو، مدل ML فقط نویز را با اعتمادبه‌نفس بیشتری تکرار می‌کند.
+
+---
+
+## ۷. کارهای باقی‌مانده برای خودت
+
+1. اجرای `python -m pytest tests/test_all.py` روی سیستم خودت برای تأیید نهایی.
+2. اجرای `streamlit run streamlit_app.py` و چک سه دمو روی `http://localhost:8501`.
+3. تصمیم درباره `.codex-git-meta` (git غیراستاندارد) قبل از commit بعدی.
+4. ENGINEERING_NOTES.md هنوز spec پیاده‌نشده را توصیف می‌کند — یا فاز ۳ را اجرا کن یا بالای فایل بنویس «وضعیت: پیاده‌سازی نشده» تا با کد نخواند. (عمداً دستش نزدم چون دستور کارِ توست، نه مستند وضعیت.)

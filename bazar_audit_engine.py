@@ -1,11 +1,20 @@
 """
-Bazar Audit Engine v1
+Bazar Audit Engine v1.1
 ترتیب اجرا: Data Quality → Core Metrics → Strategic → Behavioral → Edge Attribution
+
+تغییرات v1.1:
+- حذف sys.path هاردکد (/home/claude/...) — مسیر نسبی و قابل حمل شد.
+- run_audit و audit_from_df ادغام شدند؛ یک هسته واحد (audit_from_df) وجود دارد.
+- اعتبارسنجی ستون‌های ضروری داخل خود موتور انجام می‌شود (نه فقط در UI).
 """
-import json
-import pandas as pd
+import os
 import sys
-sys.path.insert(0, '/home/claude/bazar_v1')
+
+import pandas as pd
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
 
 from bazar_schema import AuditReport, Severity
 from bazar_metrics import compute_core_metrics, r_mode
@@ -36,17 +45,39 @@ PRIORITY = {
     "POST_LOSS_FAST_REENTRY":    9,
 }
 
+# لایه‌ها — ترتیب اجرا اهمیت دارد
+STRATEGIC_INSIGHTS = [insight_systemic]
+BEHAVIORAL_INSIGHTS = [
+    insight_session_toxicity,
+    insight_trade_count_cliff,
+    insight_post_loss_decay,
+    insight_drawdown_recovery,
+    insight_payoff_imbalance,
+    insight_symbol_edge,
+]
 
-def load(path: str) -> pd.DataFrame:
-    df = pd.read_csv(path, parse_dates=['open_time', 'close_time'])
+R_WARNING = (
+    "pnl_R not found. R-based insights are disabled. "
+    "Add 'initial_risk_amount' or 'pnl_R' column for full analysis.")
+
+
+def validate_columns(df: pd.DataFrame) -> None:
+    """ستون‌های ضروری را بررسی می‌کند؛ در صورت نبود، ValueError با پیام واضح."""
     missing = REQUIRED_COLS - set(df.columns)
     if missing:
-        raise ValueError(f"Missing required columns: {missing}")
-    return df.sort_values('open_time').reset_index(drop=True)
+        raise ValueError(f"Missing required columns: {sorted(missing)}")
 
 
-def run_audit(path: str, trader_id: str = 'trader') -> AuditReport:
-    df   = load(path)
+def audit_from_df(df: pd.DataFrame, trader_id: str = 'trader') -> AuditReport:
+    """هسته واحد audit — هم CSV و هم DataFrame مستقیم (UI) از همین مسیر می‌گذرند."""
+    validate_columns(df)
+
+    df = df.copy()
+    for col in ('open_time', 'close_time'):
+        if not pd.api.types.is_datetime64_any_dtype(df[col]):
+            df[col] = pd.to_datetime(df[col], errors='coerce')
+    df = df.sort_values('open_time').reset_index(drop=True)
+
     mode = r_mode(df)
     report = AuditReport(trader_id=trader_id, total_trades=len(df),
                          sample_size_ok=True, r_mode=mode)
@@ -60,35 +91,34 @@ def run_audit(path: str, trader_id: str = 'trader') -> AuditReport:
         return report
 
     if mode == 'pnl_only':
-        report.warnings.append(
-            "pnl_R not found. R-based insights are disabled. "
-            "Add 'initial_risk_amount' or 'pnl_R' column for full analysis.")
+        report.warnings.append(R_WARNING)
 
     # ── Core Metrics ─────────────────────────────────────────────────
     metrics = compute_core_metrics(df)
     report.core_metrics = metrics
 
-    # ── Strategic Layer (اول) ────────────────────────────────────────
-    for fn in [insight_systemic]:
+    # ── Strategic Layer (اول) → Behavioral + Edge Layer ─────────────
+    for fn in STRATEGIC_INSIGHTS + BEHAVIORAL_INSIGHTS:
         ins = fn(df, metrics)
-        if ins: report.insights.append(ins)
-
-    # ── Behavioral + Edge Layer ──────────────────────────────────────
-    for fn in [
-        insight_session_toxicity,
-        insight_trade_count_cliff,
-        insight_post_loss_decay,
-        insight_drawdown_recovery,
-        insight_payoff_imbalance,
-        insight_symbol_edge,
-    ]:
-        ins = fn(df, metrics)
-        if ins: report.insights.append(ins)
+        if ins:
+            report.insights.append(ins)
 
     # ── Priority Sort ────────────────────────────────────────────────
     report.insights.sort(key=lambda x: PRIORITY.get(x.insight_id, 99))
-
     return report
+
+
+def run_audit(path: str, trader_id: str = 'trader') -> AuditReport:
+    """CSV را بارگذاری و به هسته واحد audit می‌سپارد."""
+    df = pd.read_csv(path, parse_dates=['open_time', 'close_time'])
+    return audit_from_df(df, trader_id=trader_id)
+
+
+def load(path: str) -> pd.DataFrame:
+    """(backward-compatible) بارگذاری و اعتبارسنجی CSV."""
+    df = pd.read_csv(path, parse_dates=['open_time', 'close_time'])
+    validate_columns(df)
+    return df.sort_values('open_time').reset_index(drop=True)
 
 
 def print_report(report: AuditReport):
@@ -129,44 +159,3 @@ def print_report(report: AuditReport):
     print(f"{'─'*62}")
     print(f"  HIGH: {high}  MEDIUM: {med}  LOW: {low}")
     print(f"{'='*62}\n")
-
-
-def audit_from_df(df: pd.DataFrame, trader_id: str = 'trader') -> AuditReport:
-    """Wrapper: df مستقیم می‌گیرد برای استفاده در UI"""
-    # اطمینان از datetime بودن ستون‌های زمانی
-    for col in ['open_time', 'close_time']:
-        if col in df.columns and not pd.api.types.is_datetime64_any_dtype(df[col]):
-            df = df.copy()
-            df[col] = pd.to_datetime(df[col], errors='coerce')
-    df = df.sort_values('open_time').reset_index(drop=True)
-    mode = r_mode(df)
-    report = AuditReport(trader_id=trader_id, total_trades=len(df),
-                         sample_size_ok=True, r_mode=mode)
-
-    ok, size_ins = insight_sample_size(df)
-    if size_ins:
-        report.insights.append(size_ins)
-    if not ok:
-        report.sample_size_ok = False
-        return report
-
-    if mode == 'pnl_only':
-        report.warnings.append(
-            "pnl_R not found. R-based insights are disabled. "
-            "Add 'initial_risk_amount' or 'pnl_R' column for full analysis.")
-
-    metrics = compute_core_metrics(df)
-    report.core_metrics = metrics
-
-    for fn in [insight_systemic]:
-        ins = fn(df, metrics)
-        if ins: report.insights.append(ins)
-
-    for fn in [insight_session_toxicity, insight_trade_count_cliff,
-               insight_post_loss_decay, insight_drawdown_recovery,
-               insight_payoff_imbalance, insight_symbol_edge]:
-        ins = fn(df, metrics)
-        if ins: report.insights.append(ins)
-
-    report.insights.sort(key=lambda x: PRIORITY.get(x.insight_id, 99))
-    return report

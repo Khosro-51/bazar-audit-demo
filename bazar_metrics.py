@@ -10,6 +10,16 @@ def r_mode(df: pd.DataFrame) -> str:
     return 'pnl_only'
 
 
+def _r_series(df: pd.DataFrame, mode: str):
+    """سری R را برمی‌گرداند: مستقیم (full) یا محاسبه‌شده از initial_risk_amount (computed)."""
+    if mode == 'full':
+        return df['pnl_R']
+    if mode == 'computed':
+        risk = df['initial_risk_amount']
+        return (df['pnl'] / risk).where(risk > 0)
+    return None
+
+
 def compute_core_metrics(df: pd.DataFrame) -> dict:
     mode = r_mode(df)
     n    = len(df)
@@ -27,18 +37,20 @@ def compute_core_metrics(df: pd.DataFrame) -> dict:
 
     expectancy_dollar = round(df['pnl'].mean(), 2)
 
-    # R-based metrics
+    # R-based metrics — v1.1: برای هر دو حالت full و computed محاسبه می‌شود.
+    # قبلاً 'computed' فقط یک برچسب بود و هیچ متریک R تولید نمی‌کرد (وعده بدون اجرا).
     expectancy_R = None
     avg_win_R    = None
     avg_loss_R   = None
     payoff_R     = None
-    if mode == 'full':
-        r_wins   = df[df['pnl_R'] > 0]['pnl_R']
-        r_losses = df[df['pnl_R'] < 0]['pnl_R']
+    r_vals = _r_series(df, mode)
+    if r_vals is not None:
+        r_wins   = r_vals[r_vals > 0]
+        r_losses = r_vals[r_vals < 0]
         avg_win_R  = round(r_wins.mean(),  3) if len(r_wins)   > 0 else 0.0
         avg_loss_R = round(r_losses.mean(), 3) if len(r_losses) > 0 else 0.0
         payoff_R   = round(abs(avg_win_R / avg_loss_R), 3) if avg_loss_R != 0 else 0.0
-        expectancy_R = round(df['pnl_R'].mean(), 3)
+        expectancy_R = round(r_vals.mean(), 3)
 
     # breakeven WR: losses / (wins + losses) in absolute dollar terms
     breakeven_wr = round(abs(avg_loss) / (avg_win + abs(avg_loss)), 4) if (avg_win + abs(avg_loss)) > 0 else 0.5
