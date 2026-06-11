@@ -548,19 +548,20 @@ def apply_direction(lang: str):
         st.markdown("""
 <style>
 html, body, [class*="css"], .stMarkdown, .stText, .stAlert, .stCaption,
-.stMetric, .stExpander, .stTabs { direction: rtl; text-align: right; }
+.stMetric, .stExpander, .stTabs { direction: rtl; text-align: right; font-family: 'Vazirmatn','Inter',sans-serif; }
 div[data-testid="metric-container"] > div { text-align: right; }
 .language-switcher, .language-switcher * { direction: ltr; text-align: left; }
-.disclaimer { border-left: 0 !important; border-right: 3px solid #334155; padding-left: 0 !important; padding-right: 10px; }
-.sample-narrative { border-left: 0 !important; border-right: 4px solid #475569; }
-.sample-narrative.good { border-right-color: #34d399; }
-.sample-narrative.average { border-right-color: #fbbf24; }
-.sample-narrative.problem { border-right-color: #f87171; }
+.hero-title, .hero-sub { font-family: 'Vazirmatn','Inter',sans-serif; }
+.disclaimer { border-left: 0 !important; border-right: 2px solid #1C2530; padding-left: 0 !important; padding-right: 10px; }
+.sample-narrative { border-left: 1px solid #1C2530 !important; border-right: 3px solid #1C2530; }
+.sample-narrative.good { border-right-color: #00E5A0; }
+.sample-narrative.average { border-right-color: #FFB020; }
+.sample-narrative.problem { border-right-color: #FF4757; }
 .ins-card { border-left-width: 1px !important; }
-.ins-card.HIGH { border-right: 5px solid #f87171; }
-.ins-card.MEDIUM { border-right: 5px solid #fbbf24; }
-.ins-card.LOW { border-right: 5px solid #34d399; }
-.ins-action { border-left: 0 !important; border-right: 3px solid #60a5fa; padding-left: 0 !important; padding-right: 10px; }
+.ins-card.HIGH { border-right: 4px solid #FF4757; }
+.ins-card.MEDIUM { border-right: 4px solid #FFB020; }
+.ins-card.LOW { border-right: 4px solid #00E5A0; }
+.ins-action { border-left: 0 !important; border-right: 2px solid #00E5A0; padding-left: 0 !important; padding-right: 10px; }
 </style>""", unsafe_allow_html=True)
     else:
         st.markdown("""
@@ -569,60 +570,135 @@ html, body, [class*="css"] { direction: ltr; text-align: left; }
 .language-switcher, .language-switcher * { direction: ltr; text-align: left; }
 </style>""", unsafe_allow_html=True)
 
-# ── Base CSS ──────────────────────────────────────────────────────────────────
+# ── Base CSS — Quant Terminal Theme (v1.1) ───────────────────────────────────
 st.markdown("""
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-  html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&family=Vazirmatn:wght@400;500;700;800&display=swap');
+
+  :root {
+    --bz-bg:     #07090C;
+    --bz-panel:  #0D1117;
+    --bz-border: #1C2530;
+    --bz-text:   #C9D4DF;
+    --bz-bright: #EDF2F7;
+    --bz-dim:    #5B6B7C;
+    --bz-green:  #00E5A0;
+    --bz-red:    #FF4757;
+    --bz-amber:  #FFB020;
+  }
+
+  html, body, [class*="css"] { font-family: 'Inter', 'Vazirmatn', sans-serif; }
+  .stApp { background: var(--bz-bg); }
+
+  /* ── Hero: ترمینال ── */
+  .hero-kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem; letter-spacing: 4px;
+    color: var(--bz-green); margin-bottom: 6px;
+  }
   .hero-title {
-    font-size: 2.6rem; font-weight: 700; line-height: 1.2;
-    background: linear-gradient(135deg, #a78bfa, #60a5fa, #34d399);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    margin-bottom: 0.25rem;
+    font-size: 2.7rem; font-weight: 800; line-height: 1.15;
+    color: var(--bz-bright); margin-bottom: 0.25rem;
   }
-  .hero-sub  { font-size: 1.05rem; color: #94a3b8; margin-bottom: 1.5rem; }
+  .hero-title::after {
+    content: '_'; color: var(--bz-green);
+    animation: bz-blink 1.1s steps(1) infinite;
+  }
+  @keyframes bz-blink { 50% { opacity: 0; } }
+  .hero-sub  { font-size: 1.05rem; color: var(--bz-dim); margin-bottom: 1.4rem; }
+
   .disclaimer {
-    font-size: 0.78rem; color: #64748b;
-    border-left: 3px solid #334155; padding-left: 10px;
-    margin-bottom: 1.5rem; line-height: 1.6;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem; color: var(--bz-dim);
+    border-left: 2px solid var(--bz-border); padding-left: 10px;
+    margin-bottom: 1.4rem; line-height: 1.7;
   }
+
+  /* ── کارت‌های پروفایل نمونه ── */
   .sample-narrative {
-    background: #1e293b; border-radius: 10px;
-    padding: 14px 18px; margin-top: 6px;
-    font-size: 0.88rem; color: #cbd5e1; line-height: 1.6;
-    border-left: 4px solid #475569;
+    background: var(--bz-panel); border: 1px solid var(--bz-border);
+    border-radius: 6px; padding: 13px 16px; margin-top: 6px;
+    font-size: 0.86rem; color: var(--bz-text); line-height: 1.65;
+    border-left: 3px solid var(--bz-border);
   }
-  .sample-narrative.good    { border-color: #34d399; }
-  .sample-narrative.average { border-color: #fbbf24; }
-  .sample-narrative.problem { border-color: #f87171; }
-  div[data-testid="metric-container"] {
-    background: #1e293b; border-radius: 10px;
-    padding: 14px 16px; border: 1px solid #334155;
+  .sample-narrative.good    { border-left-color: var(--bz-green); }
+  .sample-narrative.average { border-left-color: var(--bz-amber); }
+  .sample-narrative.problem { border-left-color: var(--bz-red); }
+
+  /* ── متریک‌ها: اعداد مونواسپیس ترمینالی ── */
+  div[data-testid="metric-container"], div[data-testid="stMetric"] {
+    background: var(--bz-panel); border: 1px solid var(--bz-border);
+    border-top: 2px solid var(--bz-green);
+    border-radius: 6px; padding: 13px 15px;
   }
+  [data-testid="stMetricValue"] {
+    font-family: 'JetBrains Mono', monospace !important;
+    color: var(--bz-bright);
+  }
+  [data-testid="stMetricLabel"] {
+    color: var(--bz-dim) !important;
+    letter-spacing: 0.5px; text-transform: uppercase; font-size: 0.72rem;
+  }
+
+  /* ── کارت insight ── */
   .ins-card {
-    border-radius: 10px; padding: 16px 20px;
-    margin-bottom: 14px; border: 1px solid #334155;
-    background: #1e293b;
+    border-radius: 6px; padding: 16px 20px;
+    margin-bottom: 13px; border: 1px solid var(--bz-border);
+    background: var(--bz-panel);
   }
-  .ins-card.HIGH   { border-left: 5px solid #f87171; }
-  .ins-card.MEDIUM { border-left: 5px solid #fbbf24; }
-  .ins-card.LOW    { border-left: 5px solid #34d399; }
-  .ins-title { font-size: 1.05rem; font-weight: 600; margin-bottom: 4px; }
-  .ins-body  { font-size: 0.9rem; color: #cbd5e1; line-height: 1.65; }
+  .ins-card.HIGH   { border-left: 4px solid var(--bz-red);   box-shadow: -6px 0 18px -10px rgba(255,71,87,.5); }
+  .ins-card.MEDIUM { border-left: 4px solid var(--bz-amber); }
+  .ins-card.LOW    { border-left: 4px solid var(--bz-green); }
+  .ins-title { font-size: 1.03rem; font-weight: 700; color: var(--bz-bright); margin-bottom: 4px; }
+  .ins-body  { font-size: 0.9rem; color: var(--bz-text); line-height: 1.7; }
   .ins-action {
-    font-size: 0.85rem; color: #60a5fa;
-    border-left: 3px solid #60a5fa; padding-left: 10px; margin-top: 10px;
+    font-size: 0.85rem; color: var(--bz-green);
+    border-left: 2px solid var(--bz-green); padding-left: 10px; margin-top: 10px;
   }
-  .ins-badge { display:inline-block; border-radius:4px; padding:2px 8px;
-    font-size:0.72rem; font-weight:600; margin-right:6px; vertical-align:middle; }
-  .badge-HIGH   { background:#7f1d1d; color:#fca5a5; }
-  .badge-MEDIUM { background:#78350f; color:#fcd34d; }
-  .badge-LOW    { background:#064e3b; color:#6ee7b7; }
-  .language-switcher {
-    margin: 0 0 18px 0;
-    max-width: 520px;
+  .ins-badge {
+    display:inline-block; border-radius:3px; padding:2px 9px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:0.68rem; font-weight:700; letter-spacing:1px;
+    margin-right:6px; vertical-align:middle;
   }
-  section[data-testid="stSidebar"] { background: #0f172a; }
+  .badge-HIGH   { background:#2A0E12; color:#FF6B7A; border:1px solid #4A1820; }
+  .badge-MEDIUM { background:#2A1F08; color:#FFC04D; border:1px solid #4A3812; }
+  .badge-LOW    { background:#07251C; color:#4DEFB8; border:1px solid #0E4534; }
+
+  /* ── دکمه‌ها و ورودی‌ها ── */
+  .stButton > button {
+    background: var(--bz-panel); border: 1px solid var(--bz-border);
+    color: var(--bz-text); border-radius: 6px; font-weight: 600;
+    transition: all .15s ease;
+  }
+  .stButton > button:hover {
+    border-color: var(--bz-green); color: var(--bz-green);
+    box-shadow: 0 0 14px rgba(0,229,160,.18);
+  }
+  .stTextInput input {
+    background: var(--bz-panel) !important;
+    border: 1px solid var(--bz-border) !important;
+    border-radius: 6px !important; color: var(--bz-bright) !important;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .stTextInput input:focus { border-color: var(--bz-green) !important;
+    box-shadow: 0 0 0 1px var(--bz-green) !important; }
+
+  /* ── تب‌ها ── */
+  .stTabs [data-baseweb="tab"] {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.82rem;
+    color: var(--bz-dim);
+  }
+  .stTabs [aria-selected="true"] { color: var(--bz-green) !important; }
+  .stTabs [data-baseweb="tab-highlight"] { background-color: var(--bz-green); }
+
+  /* ── جدول/اکسپندر/سایدبار ── */
+  .stExpander { background: var(--bz-panel); border: 1px solid var(--bz-border); border-radius: 6px; }
+  section[data-testid="stSidebar"] {
+    background: #05070A; border-right: 1px solid var(--bz-border);
+  }
+  .language-switcher { margin: 0 0 18px 0; max-width: 520px; }
+  hr { border-color: var(--bz-border) !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -668,6 +744,7 @@ with st.sidebar:
     st.caption(tx["disclaimer"])
 
 # ── Hero ──────────────────────────────────────────────────────────────────────
+st.markdown(f'<div class="hero-kicker">BAZAR AUDIT — {APP_VERSION.upper()} / PRIVATE BETA</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="hero-title">{safe(tx["title"])}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="hero-sub">{safe(tx["subtitle"])}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="disclaimer">{safe(tx["disclaimer"])}</div>', unsafe_allow_html=True)
@@ -874,9 +951,9 @@ with tab_report:
     if DEMO_MODE and source == "sample":
         key = st.session_state.active_sample
         narrative_map = {"good": tx["good_narrative"], "average": tx["avg_narrative"], "problem": tx["prob_narrative"]}
-        color_map     = {"good": "#34d399", "average": "#fbbf24", "problem": "#f87171"}
+        color_map     = {"good": "#00E5A0", "average": "#FFB020", "problem": "#FF4757"}
         st.markdown(f"""
-        <div style="background:#1e293b;border-left:5px solid {color_map[key]};
+        <div style="background:#0D1117;border:1px solid #1C2530;border-left:4px solid {color_map[key]};
                     border-radius:8px;padding:14px 20px;margin-bottom:18px;
                     font-size:0.95rem;color:#e2e8f0;">
             <strong>{safe(tx['bazar_says'])}:</strong> {safe(narrative_map[key])}
