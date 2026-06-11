@@ -199,11 +199,11 @@ T = {
         "insight_meta_n":   "n",
         "r_warning":        "pnl_R not found. R-based insights are disabled. Add initial_risk_amount or pnl_R for full analysis.",
         "coming_soon":      "📌 Upload your own trading history — coming soon for private beta.",
-        "access_title":     "🔒 Private Access",
+        "access_title":     "Private Access",
         "access_label":     "Enter access code",
         "access_btn":       "Unlock",
         "access_wrong":     "Invalid access code.",
-        "beta_header":      "🔬 Private Upload Beta",
+        "beta_header":      "Private Upload Beta",
         "beta_privacy":     "You can upload one CSV file and receive one free Bazar Audit report. Bazar does not store your trading file in this demo. Do not upload sensitive live account data.",
         "beta_email_label": "Your email",
         "beta_invalid_email": "Please enter a valid email address.",
@@ -211,13 +211,13 @@ T = {
         "beta_already_used": "You have already used your free audit. Join the private beta to unlock more reports.",
         "beta_quota_status": "Uploads used with this invite code: {used} of {max}",
         "beta_quota_used":   "This invite code has used all its free audits ({max} of {max}). Contact us to unlock more reports.",
-        "req_header":        "📩 Don't have a code?",
+        "req_header":        "Don't have a code?",
         "req_caption":       "Enter your email to receive a free beta access code. Limited capacity — first come, first served.",
         "req_btn":           "Get my free access code",
         "req_code_msg":      "Your personal access code (save it for future logins):",
         "req_use_hint":      "Now enter this code in the field below and press Unlock.",
         "req_full":          "Free beta capacity is full. Paid access is coming soon — leave us your email and we will contact you.",
-        "viz3d_header":      "🧊 3D Trade Map",
+        "viz3d_header":      "3D Trade Map",
         "viz3d_caption":     "Every trade in 3D space: hour of day × trading day × result. Drag to rotate, scroll to zoom — clusters of red show exactly where your account bleeds.",
     },
     "fa": {
@@ -276,11 +276,11 @@ T = {
         "insight_meta_n":   "تعداد",
         "r_warning":        "ستون pnl_R پیدا نشد. بینش‌های مبتنی بر R غیرفعال هستند. برای تحلیل کامل، initial_risk_amount یا pnl_R را اضافه کن.",
         "coming_soon":      "📌 آپلود تاریخچه معاملاتت — به‌زودی در نسخه بتا.",
-        "access_title":     "🔒 ورود خصوصی",
+        "access_title":     "ورود خصوصی",
         "access_label":     "کد دسترسی را وارد کن",
         "access_btn":       "باز کردن",
         "access_wrong":     "کد دسترسی نادرست است.",
-        "beta_header":      "🔬 آپلود خصوصی (بتا)",
+        "beta_header":      "آپلود خصوصی (بتا)",
         "beta_privacy":     "شما می‌توانید یک فایل CSV آپلود کنید و یک گزارش رایگان Bazar Audit دریافت کنید. Bazar در این نسخه نمایشی فایل معاملاتی شما را ذخیره نمی‌کند. از آپلود اطلاعات حساس حساب واقعی خودداری کنید.",
         "beta_email_label": "ایمیل شما",
         "beta_invalid_email": "یک ایمیل معتبر وارد کن.",
@@ -288,13 +288,13 @@ T = {
         "beta_already_used": "شما گزارش رایگان خود را قبلاً استفاده کرده‌اید. برای گزارش‌های بیشتر به بتای خصوصی بپیوندید.",
         "beta_quota_status": "آپلودهای استفاده‌شده با این کد دعوت: {used} از {max}",
         "beta_quota_used":   "سهمیه این کد دعوت تمام شده است ({max} از {max}). برای گزارش‌های بیشتر با ما تماس بگیرید.",
-        "req_header":        "📩 کد نداری؟",
+        "req_header":        "کد نداری؟",
         "req_caption":       "ایمیلت را ثبت کن تا کد دسترسی رایگان بتا بگیری. ظرفیت محدود است — اولویت با ثبت‌نام زودتر.",
         "req_btn":           "دریافت کد دسترسی رایگان",
         "req_code_msg":      "کد دسترسی شخصی شما (برای ورودهای بعدی نگه‌اش دار):",
         "req_use_hint":      "حالا همین کد را در کادر پایین وارد کن و Unlock را بزن.",
         "req_full":          "ظرفیت بتای رایگان تکمیل شده است. دسترسی پولی به‌زودی فعال می‌شود — ایمیلت ثبت شد و با تو تماس می‌گیریم.",
-        "viz3d_header":      "🧊 نقشه سه‌بعدی معاملات",
+        "viz3d_header":      "نقشه سه‌بعدی معاملات",
         "viz3d_caption":     "هر معامله در فضای سه‌بعدی: ساعت روز × روز معاملاتی × نتیجه. بچرخان و زوم کن — خوشه‌های قرمز دقیقاً جایی است که حسابت خونریزی می‌کند.",
     },
     "ar": {
@@ -353,11 +353,11 @@ T = {
         "insight_meta_n":   "العدد",
         "r_warning":        "لم يتم العثور على pnl_R. تم تعطيل الرؤى المعتمدة على R. أضف initial_risk_amount أو pnl_R للتحليل الكامل.",
         "coming_soon":      "📌 رفع تاريخ تداولك الخاص — قريباً في النسخة التجريبية.",
-        "access_title":     "🔒 دخول خاص",
+        "access_title":     "دخول خاص",
         "access_label":     "أدخل رمز الوصول",
         "access_btn":       "فتح",
         "access_wrong":     "رمز الوصول غير صحيح.",
-        "beta_header":      "🔬 رفع خاص (تجريبي)",
+        "beta_header":      "رفع خاص (تجريبي)",
         "beta_privacy":     "يمكنك رفع ملف CSV واحد والحصول على تقرير Bazar Audit مجاني واحد. لا يقوم Bazar بتخزين ملف التداول الخاص بك في هذه النسخة التجريبية. يرجى عدم رفع بيانات حساسة لحساب تداول حقيقي.",
         "beta_email_label": "بريدك الإلكتروني",
         "beta_invalid_email": "يرجى إدخال بريد إلكتروني صالح.",
@@ -365,13 +365,13 @@ T = {
         "beta_already_used": "لقد استخدمت تقريرك المجاني بالفعل. انضم إلى النسخة التجريبية الخاصة للحصول على المزيد من التقارير.",
         "beta_quota_status": "الرفعات المستخدمة بهذا الرمز: {used} من {max}",
         "beta_quota_used":   "استُنفدت حصة هذا الرمز ({max} من {max}). تواصل معنا للحصول على المزيد من التقارير.",
-        "req_header":        "📩 ليس لديك رمز؟",
+        "req_header":        "ليس لديك رمز؟",
         "req_caption":       "أدخل بريدك الإلكتروني للحصول على رمز وصول مجاني للنسخة التجريبية. السعة محدودة — الأسبقية للأول.",
         "req_btn":           "الحصول على رمز مجاني",
         "req_code_msg":      "رمز الوصول الخاص بك (احتفظ به للدخول لاحقاً):",
         "req_use_hint":      "الآن أدخل هذا الرمز في الحقل أدناه واضغط Unlock.",
         "req_full":          "اكتملت سعة النسخة التجريبية المجانية. الوصول المدفوع قادم قريباً — تم تسجيل بريدك وسنتواصل معك.",
-        "viz3d_header":      "🧊 خريطة الصفقات ثلاثية الأبعاد",
+        "viz3d_header":      "خريطة الصفقات ثلاثية الأبعاد",
         "viz3d_caption":     "كل صفقة في فضاء ثلاثي الأبعاد: ساعة اليوم × يوم التداول × النتيجة. أدر وكبّر — التجمعات الحمراء تُظهر أين ينزف حسابك بالضبط.",
     },
 }
@@ -488,6 +488,43 @@ ACTION_T = {
 
 def safe(value) -> str:
     return escape(str(value), quote=True)
+
+
+# ── سیستم آیکون وکتوری (جایگزین ایموجی) ──────────────────────────────────────
+ICON_PATHS = {
+    "mail":   '<rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3 7 12 13 21 7"/>',
+    "key":    '<circle cx="8" cy="15" r="4"/><path d="M10.9 12.1 21 2m-3 3 3 3"/>',
+    "radar":  '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12 18.5 5.5"/>',
+    "cube":   '<path d="M12 2 21 7v10l-9 5-9-5V7z"/><path d="M3 7l9 5 9-5M12 22V12"/>',
+    "shield": '<path d="M12 2 20 6v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/>',
+    "pulse":  '<polyline points="2 12 7 12 10 5 14 19 17 12 22 12"/>',
+    "upload": '<path d="M12 16V4m0 0 5 5m-5-5L7 9"/><path d="M4 20h16"/>',
+}
+
+
+def bz_icon(name: str, size: int = 20, color: str = "#00E5A0") -> str:
+    return (f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" '
+            f'stroke="{color}" stroke-width="1.6" stroke-linecap="round" '
+            f'stroke-linejoin="round" style="vertical-align:middle;flex-shrink:0">'
+            f'{ICON_PATHS.get(name, ICON_PATHS["pulse"])}</svg>')
+
+
+def bz_section(num: str, icon_name: str, title: str) -> None:
+    """هدر بخش با شماره مونواسپیس + آیکون وکتوری — سبک دیزاین‌سیستم."""
+    st.markdown(
+        f'<div class="bz-sec"><span class="bz-sec-num">{num} /</span>'
+        f'{bz_icon(icon_name)}<span class="bz-sec-title">{safe(title)}</span></div>',
+        unsafe_allow_html=True)
+
+
+BZ_LOGO = (
+    '<div class="bz-logo">'
+    '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#00E5A0" '
+    'stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M12 2 21 7v10l-9 5-9-5V7z"/>'
+    '<path d="M8.5 14.5v-4M12 16V8.5M15.5 13.5v-5" stroke="#EDF2F7" stroke-width="1.8"/>'
+    '</svg>'
+    '<span class="bz-logo-text">BAZAR<span>·AUDIT</span></span></div>')
 
 
 def translate_warning(warning: str, lang: str) -> str:
@@ -785,6 +822,47 @@ st.markdown("""
   }
   .language-switcher { margin: 0 0 18px 0; max-width: 520px; }
   hr { border-color: var(--bz-border) !important; }
+
+  /* ── دیزاین‌سیستم: هدر بخش، لوگو، چیپ، نوار وضعیت ── */
+  .bz-sec {
+    display:flex; align-items:center; gap:10px;
+    margin:14px 0 4px 0; padding-bottom:9px;
+    border-bottom:1px solid var(--bz-border);
+  }
+  .bz-sec-num {
+    font-family:'JetBrains Mono',monospace; font-size:.68rem;
+    color:var(--bz-dim); letter-spacing:2px;
+  }
+  .bz-sec-title { font-size:1.12rem; font-weight:700; color:var(--bz-bright); }
+  .bz-logo { display:flex; align-items:center; gap:10px; }
+  .bz-logo-text {
+    font-family:'JetBrains Mono',monospace; font-weight:700;
+    font-size:1.02rem; letter-spacing:3px; color:var(--bz-bright);
+  }
+  .bz-logo-text span { color:var(--bz-green); }
+  .bz-chip {
+    display:inline-block; font-family:'JetBrains Mono',monospace;
+    font-size:.62rem; letter-spacing:1.5px; color:var(--bz-green);
+    border:1px solid #0E4534; background:#07251C;
+    border-radius:3px; padding:2px 9px;
+  }
+  .bz-status {
+    font-family:'JetBrains Mono',monospace; font-size:.66rem;
+    letter-spacing:1.5px; color:var(--bz-dim);
+    border:1px solid var(--bz-border); background:var(--bz-panel);
+    border-radius:6px; padding:9px 16px;
+    display:flex; gap:22px; flex-wrap:wrap; margin-top:16px;
+  }
+  .bz-dot { color:var(--bz-green); animation: bz-blink 2s steps(1) infinite; }
+  div[data-testid="stAlert"] { border:1px solid var(--bz-border); border-radius:6px; }
+  .stButton > button[kind="primary"] {
+    background:var(--bz-green); color:#06140E; border:none;
+    font-weight:700; letter-spacing:.5px;
+  }
+  .stButton > button[kind="primary"]:hover {
+    background:#3DF0B8; color:#06140E;
+    box-shadow:0 0 20px rgba(0,229,160,.4);
+  }
 </style>
 """, unsafe_allow_html=True)
 
@@ -814,8 +892,9 @@ apply_direction(lang)
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("## 📊 Bazar Audit")
-    st.markdown(f"**{tx['app_version']}**")
+    st.markdown(BZ_LOGO, unsafe_allow_html=True)
+    st.markdown(f'<div style="margin:10px 0 0 2px"><span class="bz-chip">{safe(tx["app_version"])}</span></div>',
+                unsafe_allow_html=True)
     st.divider()
     st.markdown(tx["sidebar_desc"])
     st.divider()
@@ -841,42 +920,51 @@ if not st.session_state.get("access_granted", False):
     # ── صحنه سه‌بعدی ورودی ──────────────────────────────────────────────────────
     components.html(HERO_3D, height=312)
 
-    # ── گام ۱: ثبت ایمیل و دریافت کد رایگان (۱۰ ظرفیت بتا) ────────────────────
-    st.subheader(tx["req_header"])
-    st.caption(tx["req_caption"])
-    req_email = st.text_input(tx["beta_email_label"], key="req_email")
-    if st.button(tx["req_btn"], key="req_submit"):
-        email_ok = bool(req_email) and "@" in req_email and "." in req_email.split("@")[-1]
-        if not email_ok:
-            st.warning(tx["beta_invalid_email"])
-        else:
-            assigned = assign_code_for_email(req_email)
-            if assigned is None:
-                st.error(tx["req_full"])
+    _gl, _gc, _gr = st.columns([1, 6, 1])
+    with _gc:
+        # ── گام ۱: ثبت ایمیل و دریافت کد رایگان (۱۰ ظرفیت بتا) ────────────────
+        bz_section("01", "mail", tx["req_header"])
+        st.caption(tx["req_caption"])
+        req_email = st.text_input(tx["beta_email_label"], key="req_email")
+        if st.button(tx["req_btn"], key="req_submit", type="primary"):
+            email_ok = bool(req_email) and "@" in req_email and "." in req_email.split("@")[-1]
+            if not email_ok:
+                st.warning(tx["beta_invalid_email"])
             else:
-                st.success(tx["req_code_msg"])
-                st.code(assigned)
-                st.info(tx["req_use_hint"])
+                assigned = assign_code_for_email(req_email)
+                if assigned is None:
+                    st.error(tx["req_full"])
+                else:
+                    st.success(tx["req_code_msg"])
+                    st.code(assigned)
+                    st.info(tx["req_use_hint"])
 
-    # ── گام ۲: ورود با کد ────────────────────────────────────────────────────────
-    st.divider()
-    st.subheader(tx["access_title"])
-    code_in = st.text_input(tx["access_label"], type="password", key="access_input")
-    if st.button(tx["access_btn"], key="access_submit"):
-        entered = code_in.strip()
-        is_admin  = entered == get_access_code()
-        is_invite = entered in get_invite_codes()
-        if is_admin or is_invite:
-            st.session_state["access_granted"] = True
-            st.session_state["is_admin"]      = is_admin
-            st.session_state["invite_code"]   = entered
-            st.rerun()
-        else:
-            st.error(tx["access_wrong"])
+        # ── گام ۲: ورود با کد ──────────────────────────────────────────────────
+        bz_section("02", "key", tx["access_title"])
+        code_in = st.text_input(tx["access_label"], type="password", key="access_input")
+        if st.button(tx["access_btn"], key="access_submit", type="primary"):
+            entered = code_in.strip()
+            is_admin  = entered == get_access_code()
+            is_invite = entered in get_invite_codes()
+            if is_admin or is_invite:
+                st.session_state["access_granted"] = True
+                st.session_state["is_admin"]      = is_admin
+                st.session_state["invite_code"]   = entered
+                st.rerun()
+            else:
+                st.error(tx["access_wrong"])
+
+        st.markdown(
+            '<div class="bz-status">'
+            '<span><span class="bz-dot">●</span> SYSTEM ONLINE</span>'
+            '<span>ENGINE v1.1</span>'
+            '<span>3 SAMPLE PROFILES</span>'
+            '<span>10 BETA SLOTS</span>'
+            '</div>', unsafe_allow_html=True)
     st.stop()
 
 if DEMO_MODE:
-    st.subheader(tx["pick_profile"])
+    bz_section("01", "pulse", tx["pick_profile"])
     st.caption(tx["pick_caption"])
 
     col_g, col_a, col_p = st.columns(3)
@@ -900,7 +988,7 @@ if DEMO_MODE:
 
     # ── Private Upload Beta (v1.1) ────────────────────────────────────────
     st.divider()
-    st.subheader(tx["beta_header"])
+    bz_section("02", "upload", tx["beta_header"])
     st.caption(tx["beta_privacy"])
 
     col_e, col_u = st.columns([1, 2])
@@ -1049,7 +1137,7 @@ with tab_report:
         </div>
         """, unsafe_allow_html=True)
 
-    st.subheader(tx["health_summary"])
+    bz_section("01", "shield", tx["health_summary"])
 
     high_n   = sum(1 for i in insights if i.get("severity") == "HIGH")
     medium_n = sum(1 for i in insights if i.get("severity") == "MEDIUM")
@@ -1075,7 +1163,7 @@ with tab_report:
     if not insights:
         st.success(tx["no_issues"])
     else:
-        st.subheader(f"{tx['insights_header']} — {len(insights)}")
+        bz_section("02", "radar", f"{tx['insights_header']} — {len(insights)}")
         for ins in insights:
             sev   = ins.get("severity", "LOW")
             iid   = ins.get("insight_id", "")
@@ -1120,7 +1208,7 @@ with tab_report:
     # ── نقشه سه‌بعدی معاملات (v1.1) ────────────────────────────────────────────
     if HAS_PLOTLY and 'open_time' in df.columns and len(df) > 0:
         st.divider()
-        st.subheader(tx["viz3d_header"])
+        bz_section("03", "cube", tx["viz3d_header"])
         st.caption(tx["viz3d_caption"])
         try:
             _p = df.copy()
