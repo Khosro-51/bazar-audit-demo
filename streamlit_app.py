@@ -40,6 +40,7 @@ DEFAULT_INVITE_CODES = [
 MAX_UPLOADS_PER_CODE = 3
 
 BETA_USAGE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "beta_usage.json")
+ASSIGN_FILE     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "code_assignments.json")
 MAX_UPLOAD_MB   = 5
 
 SAMPLE_FILES = {
@@ -130,6 +131,12 @@ T = {
         "beta_already_used": "You have already used your free audit. Join the private beta to unlock more reports.",
         "beta_quota_status": "Uploads used with this invite code: {used} of {max}",
         "beta_quota_used":   "This invite code has used all its free audits ({max} of {max}). Contact us to unlock more reports.",
+        "req_header":        "📩 Don't have a code?",
+        "req_caption":       "Enter your email to receive a free beta access code. Limited capacity — first come, first served.",
+        "req_btn":           "Get my free access code",
+        "req_code_msg":      "Your personal access code (save it for future logins):",
+        "req_use_hint":      "Now enter this code in the field below and press Unlock.",
+        "req_full":          "Free beta capacity is full. Paid access is coming soon — leave us your email and we will contact you.",
     },
     "fa": {
         "title":            "بازار آدیت",
@@ -199,6 +206,12 @@ T = {
         "beta_already_used": "شما گزارش رایگان خود را قبلاً استفاده کرده‌اید. برای گزارش‌های بیشتر به بتای خصوصی بپیوندید.",
         "beta_quota_status": "آپلودهای استفاده‌شده با این کد دعوت: {used} از {max}",
         "beta_quota_used":   "سهمیه این کد دعوت تمام شده است ({max} از {max}). برای گزارش‌های بیشتر با ما تماس بگیرید.",
+        "req_header":        "📩 کد نداری؟",
+        "req_caption":       "ایمیلت را ثبت کن تا کد دسترسی رایگان بتا بگیری. ظرفیت محدود است — اولویت با ثبت‌نام زودتر.",
+        "req_btn":           "دریافت کد دسترسی رایگان",
+        "req_code_msg":      "کد دسترسی شخصی شما (برای ورودهای بعدی نگه‌اش دار):",
+        "req_use_hint":      "حالا همین کد را در کادر پایین وارد کن و Unlock را بزن.",
+        "req_full":          "ظرفیت بتای رایگان تکمیل شده است. دسترسی پولی به‌زودی فعال می‌شود — ایمیلت ثبت شد و با تو تماس می‌گیریم.",
     },
     "ar": {
         "title":            "Bazar Audit",
@@ -268,6 +281,12 @@ T = {
         "beta_already_used": "لقد استخدمت تقريرك المجاني بالفعل. انضم إلى النسخة التجريبية الخاصة للحصول على المزيد من التقارير.",
         "beta_quota_status": "الرفعات المستخدمة بهذا الرمز: {used} من {max}",
         "beta_quota_used":   "استُنفدت حصة هذا الرمز ({max} من {max}). تواصل معنا للحصول على المزيد من التقارير.",
+        "req_header":        "📩 ليس لديك رمز؟",
+        "req_caption":       "أدخل بريدك الإلكتروني للحصول على رمز وصول مجاني للنسخة التجريبية. السعة محدودة — الأسبقية للأول.",
+        "req_btn":           "الحصول على رمز مجاني",
+        "req_code_msg":      "رمز الوصول الخاص بك (احتفظ به للدخول لاحقاً):",
+        "req_use_hint":      "الآن أدخل هذا الرمز في الحقل أدناه واضغط Unlock.",
+        "req_full":          "اكتملت سعة النسخة التجريبية المجانية. الوصول المدفوع قادم قريباً — تم تسجيل بريدك وسنتواصل معك.",
     },
 }
 
@@ -429,15 +448,58 @@ def get_access_code() -> str:
     return os.getenv("BAZAR_ACCESS_CODE", DEFAULT_ACCESS_CODE).strip()
 
 
-def get_invite_codes() -> set:
-    """لیست کدهای دعوت: از st.secrets[INVITE_CODES] (جداشده با کاما) یا لیست پیش‌فرض."""
+def get_invite_codes() -> list:
+    """لیست مرتب کدهای دعوت: از st.secrets[INVITE_CODES] (جداشده با کاما) یا لیست پیش‌فرض."""
     try:
         if "INVITE_CODES" in st.secrets:
             raw = str(st.secrets["INVITE_CODES"])
-            return {c.strip() for c in raw.split(",") if c.strip()}
+            return [c.strip() for c in raw.split(",") if c.strip()]
     except Exception:
         pass
-    return set(DEFAULT_INVITE_CODES)
+    return list(DEFAULT_INVITE_CODES)
+
+
+def load_assignments() -> dict:
+    """نگاشت email → کد دعوت اختصاص‌یافته."""
+    try:
+        with open(ASSIGN_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_assignments(data: dict) -> None:
+    try:
+        with open(ASSIGN_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+    except Exception:
+        pass
+
+
+def assign_code_for_email(email: str):
+    """برای ایمیل، کد قبلی یا اولین کد آزاد را برمی‌گرداند؛ None یعنی ظرفیت تکمیل."""
+    em = email.strip().lower()
+    assignments = load_assignments()
+    if em in assignments and isinstance(assignments[em], dict):
+        return assignments[em]["code"]
+    taken = {v["code"] for v in assignments.values() if isinstance(v, dict)}
+    for code in get_invite_codes():
+        if code not in taken:
+            assignments[em] = {
+                "code": code,
+                "assigned_at": datetime.now(timezone.utc).isoformat(),
+            }
+            save_assignments(assignments)
+            return code
+    # ظرفیت تکمیل → ایمیل در لیست انتظار ثبت می‌شود تا برای دسترسی پولی تماس بگیریم.
+    wl = assignments.get("_waitlist", [])
+    if not isinstance(wl, list):
+        wl = []
+    if em not in wl:
+        wl.append(em)
+        assignments["_waitlist"] = wl
+        save_assignments(assignments)
+    return None
 
 
 def email_hash(email: str) -> str:
@@ -613,6 +675,25 @@ st.markdown(f'<div class="disclaimer">{safe(tx["disclaimer"])}</div>', unsafe_al
 # ── Sample Picker / Upload ────────────────────────────────────────────────────
 # ── Access Gate (v1.1): بدون کد دسترسی، هیچ‌چیز باز نمی‌شود ─────────────────────
 if not st.session_state.get("access_granted", False):
+    # ── گام ۱: ثبت ایمیل و دریافت کد رایگان (۱۰ ظرفیت بتا) ────────────────────
+    st.subheader(tx["req_header"])
+    st.caption(tx["req_caption"])
+    req_email = st.text_input(tx["beta_email_label"], key="req_email")
+    if st.button(tx["req_btn"], key="req_submit"):
+        email_ok = bool(req_email) and "@" in req_email and "." in req_email.split("@")[-1]
+        if not email_ok:
+            st.warning(tx["beta_invalid_email"])
+        else:
+            assigned = assign_code_for_email(req_email)
+            if assigned is None:
+                st.error(tx["req_full"])
+            else:
+                st.success(tx["req_code_msg"])
+                st.code(assigned)
+                st.info(tx["req_use_hint"])
+
+    # ── گام ۲: ورود با کد ────────────────────────────────────────────────────────
+    st.divider()
     st.subheader(tx["access_title"])
     code_in = st.text_input(tx["access_label"], type="password", key="access_input")
     if st.button(tx["access_btn"], key="access_submit"):

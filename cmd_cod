@@ -1,0 +1,7 @@
+cd /d "C:\Users\Khosro\Desktop\web\Bazar Audit Engine v1"
+python -m streamlit run streamlit_app.py
+
+
+"C:\Program Files\Git\cmd\git.exe" --git-dir=.codex-git-meta add -A
+"C:\Program Files\Git\cmd\git.exe" --git-dir=.codex-git-meta commit -m "v1.1: access gate + private upload beta + version badge"
+"C:\Program Files\Git\cmd\git.exe" --git-dir=.codex-git-meta push origin main

@@ -9,3 +9,4 @@ _archive/
 .pytest_cache/
 .tools/
 beta_usage.json
+code_assignments.json
