@@ -30,7 +30,7 @@ if BASE_DIR not in sys.path:
 
 # ── Config ────────────────────────────────────────────────────────────────────
 DEMO_MODE = True
-APP_VERSION = "v1.6"
+APP_VERSION = "v2.0"
 
 # Access code: اول st.secrets، بعد env، بعد مقدار پیش‌فرض.
 # برای production مقدار را در Streamlit Cloud → App settings → Secrets بگذار:
@@ -201,7 +201,7 @@ T = {
     "en": {
         "title":            "Bazar Audit",
         "language":         "Language",
-        "app_version":      "v1.6 — Private Beta",
+        "app_version":      "v2.0 — Private Beta",
         "subtitle":         "Discover what really drives your trading performance.",
         "disclaimer":       "Bazar does not provide buy/sell signals or financial advice. It analyzes trading performance, risk behavior, and strategy structure.",
         "pick_profile":     "Choose a sample trader profile",
@@ -209,7 +209,7 @@ T = {
         "good_label":       "✅ Good Trader",
         "good_narrative":   "No critical issues detected. Keep tracking more data.",
         "avg_label":        "⚠️ Average Trader",
-        "avg_narrative":    "Main issues: session toxicity, fast re-entry after losses, weak symbol selection.",
+        "avg_narrative":    "Behavioral patterns observed: weak session and weak symbol — evidence still limited at this sample size.",
         "prob_label":       "🔴 Problem Trader",
         "prob_narrative":   "First problem is not behavior. Core strategy is structurally below breakeven.",
         "choose_prompt":    "👆 Select one of the profiles above to generate an Audit Report.",
@@ -294,7 +294,7 @@ T = {
     "fa": {
         "title":            "بازار آدیت",
         "language":         "زبان",
-        "app_version":      "نسخه v1.6 — بتای خصوصی",
+        "app_version":      "نسخه v2.0 — بتای خصوصی",
         "subtitle":         "بفهم سود و ضرر معاملاتت واقعاً از کجا می‌آید.",
         "disclaimer":       "Bazar سیگنال خرید و فروش یا مشاوره سرمایه‌گذاری ارائه نمی‌دهد. Bazar عملکرد معاملاتی، رفتار ریسک و ساختار استراتژی را تحلیل می‌کند.",
         "pick_profile":     "یک تریدر نمونه را انتخاب کن",
@@ -302,7 +302,7 @@ T = {
         "good_label":       "✅ تریدر خوب",
         "good_narrative":   "هیچ مشکل قابل توجهی شناسایی نشد. به ثبت معاملات ادامه بده.",
         "avg_label":        "⚠️ تریدر متوسط",
-        "avg_narrative":    "مشکلات اصلی: سمیّت سشن، ورود سریع بعد از ضرر، ضعف در انتخاب نماد.",
+        "avg_narrative":    "الگوهای رفتاری مشاهده‌شده: سشن و نماد ضعیف — شواهد در این حجم نمونه هنوز محدود است.",
         "prob_label":       "🔴 تریدر با مشکل",
         "prob_narrative":   "مشکل اول رفتاری نیست. استراتژی اصلی از نظر ساختاری زیر سطح سر به سر است.",
         "choose_prompt":    "👆 یکی از پروفایل‌های بالا را انتخاب کن تا Audit Report ساخته شود.",
@@ -387,7 +387,7 @@ T = {
     "ar": {
         "title":            "Bazar Audit",
         "language":         "اللغة",
-        "app_version":      "v1.6 — نسخة تجريبية خاصة",
+        "app_version":      "v2.0 — نسخة تجريبية خاصة",
         "subtitle":         "اكتشف ما الذي يقود أداء تداولك فعلياً.",
         "disclaimer":       "لا يقدم Bazar إشارات شراء أو بيع ولا نصائح استثمارية. يقوم Bazar بتحليل أداء التداول وسلوك المخاطر وبنية الاستراتيجية.",
         "pick_profile":     "اختر ملف متداول نموذجياً",
@@ -395,7 +395,7 @@ T = {
         "good_label":       "✅ متداول جيد",
         "good_narrative":   "لم يتم رصد أي مشكلة جوهرية. استمر في تتبع المزيد من الصفقات.",
         "avg_label":        "⚠️ متداول متوسط",
-        "avg_narrative":    "المشكلات الرئيسية: سمية الجلسة، الدخول السريع بعد الخسارة، ضعف اختيار الرمز.",
+        "avg_narrative":    "أنماط سلوكية ملحوظة: جلسة ورمز ضعيفان — الأدلة ما زالت محدودة بهذا الحجم.",
         "prob_label":       "🔴 متداول يعاني من مشاكل",
         "prob_narrative":   "المشكلة الأولى ليست سلوكية. الاستراتيجية الأساسية هيكلياً دون نقطة التعادل.",
         "choose_prompt":    "👆 اختر أحد الملفات أعلاه لإنشاء تقرير التدقيق.",
@@ -646,19 +646,41 @@ def translate_warning(warning: str, lang: str) -> str:
     return warning
 
 
+# v2.0: متن‌های عمومی حالت observation (برای عربی که body استاتیک دارد + action فارسی/عربی)
+OBS_BODY_AR = {
+    "SESSION_TOXICITY": "في بياناتك الحالية تبدو إحدى الجلسات ضعيفة، لكن الأدلة لا تكفي بعد لحكم قاطع. مع المزيد من الصفقات تتحسن قوة الحكم.",
+    "SYMBOL_NO_EDGE":   "في بياناتك الحالية يبدو أحد الرموز ضعيفاً، لكن الأدلة لا تكفي بعد لحكم قاطع. سجّل المزيد من الصفقات.",
+    "TRADE_COUNT_CLIFF": "يبدو أن نسبة الفوز تنخفض بعد صفقة معينة، لكن الأدلة لا تكفي بعد. سجّل المزيد من أيام التداول.",
+    "PAYOFF_IMBALANCE": "متوسط ربحك أصغر قليلاً من متوسط خسارتك؛ الفرق صغير وقد يكون ضوضاء. يُعاد الفحص مع بيانات أكثر.",
+    "EDGE_BELOW_BREAKEVEN": "استراتيجيتك دون نقطة التعادل بقليل في هذه العينة، والفارق ضمن نطاق الضوضاء. تحقق من التكاليف وسجّل المزيد.",
+}
+OBS_ACTION = {
+    "fa": "فعلاً تصمیم قطعی نگیر؛ ثبت معاملات را ادامه بده تا شواهد کافی شود.",
+    "ar": "لا تتخذ قراراً نهائياً بعد؛ واصل تسجيل الصفقات حتى تكفي الأدلة.",
+}
+
+
 def get_insight_text(ins: dict, lang: str) -> tuple:
     iid = ins.get("insight_id", "")
     t   = INSIGHT_T.get(iid, {}).get(lang, {})
+    obs = bool((ins.get("metric_snapshot") or {}).get("observation"))
 
     if lang == "en":
         title = t.get("title") or ins.get("insight_id", "")
+        if obs:
+            title = f"Observation: {title}"
     elif lang == "fa":
         title = ins.get("title_fa") or t.get("title") or iid
     else:
         title = t.get("title") or iid
+        if obs:
+            title = f"ملاحظة: {title}"
 
     if "body" in t:
         body = t["body"]
+        if obs and lang == "ar":
+            # v2.0: body استاتیک عربی قطعی است؛ در حالت مشاهده نسخه محتاط جایگزین می‌شود
+            body = OBS_BODY_AR.get(iid, body)
     elif t.get("body_key") == "message" or lang == "en":
         # v1.5: در حالت انگلیسی هرگز به body_fa سقوط نکن (باگ قاطی‌شدن زبان‌ها)
         body = ins.get("message", "")
@@ -667,7 +689,11 @@ def get_insight_text(ins: dict, lang: str) -> tuple:
 
     action = ins.get("recommended_action", "")
     if lang in {"fa", "ar"}:
-        action = ACTION_T.get(iid, {}).get(lang, action)
+        if obs:
+            # v2.0: در حالت مشاهده، توصیه قطعی استاتیک override نمی‌شود
+            action = OBS_ACTION.get(lang, action)
+        else:
+            action = ACTION_T.get(iid, {}).get(lang, action)
 
     return title, body, action
 
@@ -1306,7 +1332,7 @@ if not st.session_state.get("access_granted", False):
         st.markdown(
             '<div class="bz-status">'
             '<span><span class="bz-dot">●</span> SYSTEM ONLINE</span>'
-            '<span>ENGINE v1.6</span>'
+            '<span>ENGINE v2.0</span>'
             '<span>3 SAMPLE PROFILES</span>'
             '<span>10 BETA SLOTS</span>'
             '</div>', unsafe_allow_html=True)
