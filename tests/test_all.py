@@ -126,3 +126,53 @@ def test_problem_json_contract_first_non_sample_insight():
 
     assert first["insight_id"] == "SYSTEMIC_UNDERPERFORMANCE"
     json.dumps(first, ensure_ascii=False)
+
+
+# ── v1.2: تست‌های پچ‌های ENGINEERING_NOTES ─────────────────────────────────
+import pandas as pd
+
+
+def _make_borderline_df(n=60):
+    """تریدر مرزی: WR=45٪، PF≈0.91، expectancy_R≈-0.055 — باید EDGE_BELOW_BREAKEVEN بگیرد."""
+    rows = []
+    t = pd.Timestamp('2026-01-05 09:00:00')
+    for i in range(n):
+        win = (i % 20) < 9   # 45% win rate
+        t += pd.Timedelta(hours=3)
+        rows.append(dict(
+            trade_id=f'T{i:03d}', open_time=t, close_time=t + pd.Timedelta(minutes=30),
+            symbol='EURUSD', side='BUY',
+            pnl=127.0 if win else -114.0,
+            pnl_R=1.1 if win else -1.0,
+            session=['London', 'NY', 'Asia', 'Overlap'][i % 4],
+        ))
+    return pd.DataFrame(rows)
+
+
+def test_borderline_edge_below_breakeven():
+    from bazar_audit_engine import audit_from_df
+    rep = audit_from_df(_make_borderline_df(), 'BORDERLINE')
+    ids = [i.insight_id for i in rep.insights]
+    assert "EDGE_BELOW_BREAKEVEN" in ids, f"got {ids}"
+    assert "SYSTEMIC_UNDERPERFORMANCE" not in ids
+    ins = next(i for i in rep.insights if i.insight_id == "EDGE_BELOW_BREAKEVEN")
+    assert ins.severity.value == "MEDIUM"
+
+
+def test_session_counterfactual_replaces_impact_pct():
+    report = run_audit(PATHS["AVERAGE"], "AVERAGE")
+    st_ins = next(i for i in report.insights if i.insight_id == "SESSION_TOXICITY")
+    cf = st_ins.metric_snapshot.get("counterfactual")
+    assert cf is not None
+    for key in ("current_pf", "pf_without_segment", "current_net_pnl", "net_pnl_without_segment"):
+        assert key in cf
+    assert "impact_pct" not in st_ins.metric_snapshot
+
+
+def test_small_segment_confidence_guard():
+    """سگمنت با n<20 نباید confidence بالاتر از LOW بگیرد."""
+    report = run_audit(PATHS["AVERAGE"], "AVERAGE")
+    for ins in report.insights:
+        if ins.insight_id in ("SESSION_TOXICITY", "SYMBOL_NO_EDGE") and ins.sample_size < 20:
+            assert ins.confidence.value == "LOW", (
+                f"{ins.insight_id} n={ins.sample_size} got {ins.confidence.value}")

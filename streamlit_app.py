@@ -30,24 +30,24 @@ if BASE_DIR not in sys.path:
 
 # ── Config ────────────────────────────────────────────────────────────────────
 DEMO_MODE = True
-APP_VERSION = "v1.1"
+APP_VERSION = "v1.6"
 
 # Access code: اول st.secrets، بعد env، بعد مقدار پیش‌فرض.
 # برای production مقدار را در Streamlit Cloud → App settings → Secrets بگذار:
 #   ACCESS_CODE = "..."
-DEFAULT_ACCESS_CODE = "BZR-9T4K-72QX"  # کد مدیر — آپلود نامحدود
-
-# کدهای دعوت تسترها (هر کد = یک ارزیاب، سهمیه محدود).
-# قابل جایگزینی از Secrets با INVITE_CODES = "CODE1,CODE2,..."
-DEFAULT_INVITE_CODES = [
-    "BZR-T01-7F4K", "BZR-T02-X9Q2", "BZR-T03-M5RD", "BZR-T04-2VJN",
-    "BZR-T05-8PWZ", "BZR-T06-K3TY", "BZR-T07-Q6HB", "BZR-T08-5ZSC",
-    "BZR-T09-R8DG", "BZR-T10-4NXM",
-]
+# v1.6 (چرخش امنیتی): هیچ کد واقعی در سورس نیست — کدهای قبلی (BZR-9T4K... و BZR-T01...) چون
+# در فایل‌های متنی pushپذیر نوشته شده بودند سوخته فرض می‌شوند.
+# مقادیر واقعی فقط در .streamlit/secrets.toml (لوکال، gitignored) و Streamlit Cloud → Secrets:
+#   ACCESS_CODE  = "..."
+#   INVITE_CODES = "CODE1,CODE2,..."
+DEFAULT_ACCESS_CODE = ""      # خالی = بدون secrets هیچ ورود مدیری ممکن نیست
+DEFAULT_INVITE_CODES = []     # خالی = بدون secrets هیچ توکنی معتبر نیست
 MAX_UPLOADS_PER_CODE = 3
+TOKEN_TTL_HOURS = 24  # v1.4: توکن یکبارمصرف — از اولین فعال‌سازی فقط ۲۴ ساعت معتبر است
 
 BETA_USAGE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "beta_usage.json")
 ASSIGN_FILE     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "code_assignments.json")
+ACCESS_LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "access_log.json")
 MAX_UPLOAD_MB   = 5
 
 # ── صحنه سه‌بعدی صفحه ورود (Three.js) ────────────────────────────────────────
@@ -123,6 +123,61 @@ window.addEventListener('resize',()=>{const w=el.clientWidth;ren.setSize(w,H);ca
 </script>
 """
 
+# ── بنر زنده Matrix Rain صفحه اصلی (v1.3) ────────────────────────────────────
+MATRIX_BG = """
+<div id="bzmx" style="position:relative;width:100%;height:280px;background:#07090C;
+     border:1px solid #1C2530;border-radius:8px;overflow:hidden">
+  <canvas id="mx" style="display:block"></canvas>
+  <div style="position:absolute;top:14px;left:18px;font-family:monospace;font-size:10px;
+       letter-spacing:3px;color:#00E5A0;opacity:.9">BAZAR · DIAGNOSTIC RAIN</div>
+</div>
+<script>
+const wrap=document.getElementById('bzmx'),cv=document.getElementById('mx'),ctx=cv.getContext('2d');
+let W,H;function rs(){W=cv.width=wrap.clientWidth;H=cv.height=wrap.clientHeight;}rs();
+window.addEventListener('resize',rs);
+const TERM_H=84;const GROUND=()=>H-TERM_H;
+const CHARS='アイウエオカキクケコ01$+-*/=%#@&BZRAUDIT';
+const MSGS=['> session.toxicity probe','> symbol.edge compute','> payoff.matrix align',
+            '> drawdown.guard active','> post-loss.decay trace','> expectancy.R stream',
+            '> cliff.detector armed','> audit.pipeline OK'];
+let drops=[],cols=[],term=['BAZAR://init diagnostic core','> edge.scan OK'],tick=0;
+function loop(){
+  ctx.fillStyle='rgba(7,9,12,.18)';ctx.fillRect(0,0,W,H);
+  tick++;
+  if(tick%3===0)drops.push({x:Math.random()*W,y:-10,v:4+Math.random()*5});
+  // باران
+  ctx.strokeStyle='rgba(0,229,160,.55)';ctx.lineWidth=1;
+  drops=drops.filter(d=>{
+    ctx.beginPath();ctx.moveTo(d.x,d.y-8);ctx.lineTo(d.x,d.y);ctx.stroke();
+    d.y+=d.v;
+    if(d.y>=GROUND()){
+      cols.push({x:d.x,y:0,sp:2+Math.random()*2.5,len:6+(Math.random()*14|0),life:140+Math.random()*100});
+      return false;}
+    return true;});
+  // ستون‌های کد ماتریکس
+  ctx.font='12px monospace';
+  cols=cols.filter(c=>{
+    ctx.fillStyle='#9FFFDE';
+    ctx.fillText(CHARS[Math.random()*CHARS.length|0],c.x,Math.min(c.y,GROUND()-2));
+    ctx.fillStyle='rgba(0,229,160,.8)';
+    for(let i=1;i<c.len;i++){const yy=c.y-i*13;
+      if(yy>0&&yy<GROUND())ctx.fillText(CHARS[(tick+i)%CHARS.length],c.x,yy);}
+    c.y+=c.sp;c.life--;return c.life>0;});
+  // ترمینال درخشان پایین
+  const gy=GROUND();
+  ctx.fillStyle='rgba(5,7,10,.92)';ctx.fillRect(0,gy,W,TERM_H);
+  ctx.strokeStyle='rgba(0,229,160,.6)';ctx.strokeRect(.5,gy+.5,W-1,TERM_H-1);
+  if(tick%90===0){term.push(MSGS[(tick/90|0)%MSGS.length]);if(term.length>5)term.shift();}
+  ctx.shadowColor='#00E5A0';ctx.shadowBlur=10;
+  ctx.fillStyle='#00E5A0';ctx.font='11px monospace';
+  term.forEach((l,i)=>ctx.fillText(l,12,gy+18+i*14));
+  ctx.shadowBlur=0;
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+"""
+
 SAMPLE_FILES = {
     "good":    os.path.join(BASE_DIR, "sample_data", "bazar_sample_good_trader.csv"),
     "average": os.path.join(BASE_DIR, "sample_data", "bazar_sample_average_trader.csv"),
@@ -146,7 +201,7 @@ T = {
     "en": {
         "title":            "Bazar Audit",
         "language":         "Language",
-        "app_version":      "v1.1 — Private Beta",
+        "app_version":      "v1.6 — Private Beta",
         "subtitle":         "Discover what really drives your trading performance.",
         "disclaimer":       "Bazar does not provide buy/sell signals or financial advice. It analyzes trading performance, risk behavior, and strategy structure.",
         "pick_profile":     "Choose a sample trader profile",
@@ -219,11 +274,27 @@ T = {
         "req_full":          "Free beta capacity is full. Paid access is coming soon — leave us your email and we will contact you.",
         "viz3d_header":      "3D Trade Map",
         "viz3d_caption":     "Every trade in 3D space: hour of day × trading day × result. Drag to rotate, scroll to zoom — clusters of red show exactly where your account bleeds.",
+        "src_upload_banner": "REPORT SOURCE: YOUR FILE — {name} · {n} trades",
+        "src_sample_banner": "REPORT SOURCE: DEMO PROFILE — {name} · {n} trades (not your data)",
+        "back_to_upload":    "↩ Back to my file's report",
+        "req_exists":        "This email has already been used. Each email gets one free token — a new token will be available with paid access soon.",
+        "code_expired":      "This one-time token has already been activated and its validity window (24h) has ended. Contact support for a new token.",
+        "beta_email_mismatch": "Uploads are only allowed with the same email that received this access token.",
+        "demo_expander":     "Demo profiles (for reference — not your data)",
+        "lbl_breakeven":     "Breakeven WR",
+        "lbl_sev":           "High / Medium",
+        "cf_current":        "CURRENT",
+        "cf_without":        "WITHOUT",
+        "report_btn":        "Download Full Report",
+        "report_hint":       "Opens in any browser — use Print to save as PDF.",
+        "report_generated":  "Generated",
+        "report_actions":    "Action Plan",
+        "beta_email_bound":  "This email is already linked to another invite code. Each email can be used with one code only.",
     },
     "fa": {
         "title":            "بازار آدیت",
         "language":         "زبان",
-        "app_version":      "نسخه v1.1 — بتای خصوصی",
+        "app_version":      "نسخه v1.6 — بتای خصوصی",
         "subtitle":         "بفهم سود و ضرر معاملاتت واقعاً از کجا می‌آید.",
         "disclaimer":       "Bazar سیگنال خرید و فروش یا مشاوره سرمایه‌گذاری ارائه نمی‌دهد. Bazar عملکرد معاملاتی، رفتار ریسک و ساختار استراتژی را تحلیل می‌کند.",
         "pick_profile":     "یک تریدر نمونه را انتخاب کن",
@@ -296,11 +367,27 @@ T = {
         "req_full":          "ظرفیت بتای رایگان تکمیل شده است. دسترسی پولی به‌زودی فعال می‌شود — ایمیلت ثبت شد و با تو تماس می‌گیریم.",
         "viz3d_header":      "نقشه سه‌بعدی معاملات",
         "viz3d_caption":     "هر معامله در فضای سه‌بعدی: ساعت روز × روز معاملاتی × نتیجه. بچرخان و زوم کن — خوشه‌های قرمز دقیقاً جایی است که حسابت خونریزی می‌کند.",
+        "src_upload_banner": "منبع گزارش: فایل شما — {name} · {n} معامله",
+        "src_sample_banner": "منبع گزارش: پروفایل دمو — {name} · {n} معامله (داده شما نیست)",
+        "back_to_upload":    "↩ بازگشت به گزارش فایل من",
+        "req_exists":        "این ایمیل قبلاً استفاده شده است. هر ایمیل فقط یک توکن رایگان دارد — توکن جدید به‌زودی با فعال‌سازی دسترسی پولی ارائه می‌شود.",
+        "code_expired":      "این توکن یکبارمصرف قبلاً فعال شده و مهلت اعتبارش (۲۴ ساعت) تمام شده است. برای توکن جدید با پشتیبانی تماس بگیر.",
+        "beta_email_mismatch": "آپلود فقط با همان ایمیلی مجاز است که با آن توکن ورود دریافت کرده‌ای.",
+        "demo_expander":     "پروفایل‌های دمو (فقط برای مقایسه — داده شما نیست)",
+        "lbl_breakeven":     "حد سر‌به‌سر",
+        "lbl_sev":           "بحرانی / هشدار",
+        "cf_current":        "فعلی",
+        "cf_without":        "بدون این بخش",
+        "report_btn":        "دانلود گزارش کامل",
+        "report_hint":       "در هر مرورگری باز می‌شود — برای PDF از Print استفاده کن.",
+        "report_generated":  "تاریخ صدور",
+        "report_actions":    "برنامه اقدام",
+        "beta_email_bound":  "این ایمیل قبلاً با کد دعوت دیگری استفاده شده است. هر ایمیل فقط با یک کد قابل استفاده است.",
     },
     "ar": {
         "title":            "Bazar Audit",
         "language":         "اللغة",
-        "app_version":      "v1.1 — نسخة تجريبية خاصة",
+        "app_version":      "v1.6 — نسخة تجريبية خاصة",
         "subtitle":         "اكتشف ما الذي يقود أداء تداولك فعلياً.",
         "disclaimer":       "لا يقدم Bazar إشارات شراء أو بيع ولا نصائح استثمارية. يقوم Bazar بتحليل أداء التداول وسلوك المخاطر وبنية الاستراتيجية.",
         "pick_profile":     "اختر ملف متداول نموذجياً",
@@ -373,6 +460,22 @@ T = {
         "req_full":          "اكتملت سعة النسخة التجريبية المجانية. الوصول المدفوع قادم قريباً — تم تسجيل بريدك وسنتواصل معك.",
         "viz3d_header":      "خريطة الصفقات ثلاثية الأبعاد",
         "viz3d_caption":     "كل صفقة في فضاء ثلاثي الأبعاد: ساعة اليوم × يوم التداول × النتيجة. أدر وكبّر — التجمعات الحمراء تُظهر أين ينزف حسابك بالضبط.",
+        "src_upload_banner": "مصدر التقرير: ملفك — {name} · {n} صفقة",
+        "src_sample_banner": "مصدر التقرير: ملف تجريبي — {name} · {n} صفقة (ليست بياناتك)",
+        "back_to_upload":    "↩ العودة إلى تقرير ملفي",
+        "req_exists":        "هذا البريد استُخدم من قبل. لكل بريد رمز مجاني واحد فقط — رمز جديد سيتوفر قريباً مع الوصول المدفوع.",
+        "code_expired":      "هذا الرمز أحادي الاستخدام تم تفعيله سابقاً وانتهت صلاحيته (24 ساعة). تواصل مع الدعم لرمز جديد.",
+        "beta_email_mismatch": "الرفع مسموح فقط بنفس البريد الذي حصل على رمز الدخول.",
+        "demo_expander":     "ملفات تجريبية (للمقارنة فقط — ليست بياناتك)",
+        "lbl_breakeven":     "حد التعادل",
+        "lbl_sev":           "حرجة / تحذير",
+        "cf_current":        "الحالي",
+        "cf_without":        "بدون هذا الجزء",
+        "report_btn":        "تنزيل التقرير الكامل",
+        "report_hint":       "يُفتح في أي متصفح — استخدم Print للحفظ كـ PDF.",
+        "report_generated":  "تاريخ الإصدار",
+        "report_actions":    "خطة العمل",
+        "beta_email_bound":  "هذا البريد مرتبط برمز دعوة آخر. كل بريد يُستخدم مع رمز واحد فقط.",
     },
 }
 
@@ -385,6 +488,12 @@ INSIGHT_T = {
                "body_key": "body_fa"},
         "ar": {"title": "ضعف هيكلي في الاستراتيجية",
                "body": "يبدو أن أداء استراتيجيتك الحالية أقل من مستوى التعادل بشكل هيكلي. راجع منطق الدخول والخروج الأساسي قبل تحسين القواعد السلوكية."},
+    },
+    "EDGE_BELOW_BREAKEVEN": {
+        "en": {"title": "Edge Below Breakeven",       "body_key": "message"},
+        "fa": {"title": "کمی زیر سطح سر‌به‌سر",       "body_key": "body_fa"},
+        "ar": {"title": "أداء دون نقطة التعادل بقليل",
+               "body": "استراتيجيتك حالياً دون نقطة التعادل بقليل. قبل تحسين الفلاتر الجزئية، تحقق من أن جوهر الاستراتيجية يملك أفضلية كافية بعد التكاليف."},
     },
     "SESSION_TOXICITY": {
         "en": {"title": "Session Toxicity",           "body_key": "message"},
@@ -443,6 +552,10 @@ INSIGHT_T = {
 }
 
 ACTION_T = {
+    "EDGE_BELOW_BREAKEVEN": {
+        "fa": "قبل از تنظیم سشن/نماد، ثابت کن هسته استراتژی بعد از هزینه‌ها (اسپرد/کمیسیون) edge دارد.",
+        "ar": "قبل ضبط الجلسات/الرموز، تحقق من أفضلية الاستراتيجية بعد التكاليف (السبريد/العمولة).",
+    },
     "SYSTEMIC_UNDERPERFORMANCE": {
         "fa": "قبل از بهینه‌سازی قوانین رفتاری، منطق اصلی ورود و خروج را بازبینی کن.",
         "ar": "راجع منطق الدخول والخروج الأساسي قبل تحسين القواعد السلوكية.",
@@ -546,7 +659,8 @@ def get_insight_text(ins: dict, lang: str) -> tuple:
 
     if "body" in t:
         body = t["body"]
-    elif t.get("body_key") == "message":
+    elif t.get("body_key") == "message" or lang == "en":
+        # v1.5: در حالت انگلیسی هرگز به body_fa سقوط نکن (باگ قاطی‌شدن زبان‌ها)
         body = ins.get("message", "")
     else:
         body = ins.get("body_fa") or ins.get("message", "")
@@ -556,6 +670,139 @@ def get_insight_text(ins: dict, lang: str) -> tuple:
         action = ACTION_T.get(iid, {}).get(lang, action)
 
     return title, body, action
+
+
+# ── گزارش HTML تک‌کلیکی برای کاربر نهایی (v1.3) ──────────────────────────────
+_REPORT_CSS = """
+body{background:#07090C;color:#C9D4DF;font-family:'Vazirmatn','Inter',sans-serif;
+     margin:0;padding:40px 6%;line-height:1.7}
+.mono{font-family:'JetBrains Mono',monospace}
+.kicker{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:4px;color:#00E5A0}
+h1{color:#EDF2F7;font-size:30px;margin:6px 0 2px 0}
+.sub{color:#5B6B7C;font-size:13px;margin-bottom:22px}
+.srcline{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:1px;
+         border:1px solid #1C2530;border-radius:6px;padding:9px 14px;margin:14px 0;display:inline-block}
+.grid{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0}
+.mc{background:#0D1117;border:1px solid #1C2530;border-top:2px solid #00E5A0;
+    border-radius:6px;padding:12px 18px;min-width:120px}
+.ml{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;color:#5B6B7C;text-transform:uppercase}
+.mv{font-family:'JetBrains Mono',monospace;font-size:21px;font-weight:700;color:#EDF2F7;margin-top:3px}
+h2{color:#EDF2F7;font-size:18px;border-bottom:1px solid #1C2530;padding-bottom:8px;margin-top:32px}
+.card{background:#0D1117;border:1px solid #1C2530;border-inline-start:4px solid #00E5A0;
+      border-radius:6px;padding:16px 20px;margin:12px 0}
+.badge{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:1px;
+       border-radius:3px;padding:2px 8px;margin-inline-start:8px}
+.ct{font-size:15px;font-weight:700;color:#EDF2F7}
+.cb{font-size:13.5px;color:#C9D4DF;margin-top:6px}
+.act{font-size:13px;color:#00E5A0;border-inline-start:2px solid #00E5A0;
+     padding-inline-start:10px;margin-top:10px}
+table.cf{border-collapse:collapse;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:12px}
+table.cf th,table.cf td{border:1px solid #1C2530;padding:5px 12px;color:#C9D4DF}
+table.cf th{color:#5B6B7C;font-size:10px;letter-spacing:1px}
+.meta{font-family:'JetBrains Mono',monospace;font-size:10px;color:#5B6B7C;letter-spacing:1px}
+.footer{margin-top:36px;border-top:1px solid #1C2530;padding-top:14px;
+        font-family:'JetBrains Mono',monospace;font-size:10.5px;color:#5B6B7C;line-height:1.8}
+@media print{body{background:#fff;color:#222}
+  .mc,.card{background:#fff;border-color:#ccc}.mv,.ct,h1,h2{color:#111}}
+"""
+
+
+def build_report_html(result: dict, tx: dict, lang: str, trader_id: str, source: str) -> str:
+    """گزارش کامل خودکفا برای کاربر نهایی — بدون نیاز به دانستن JSON."""
+    m        = result.get("core_metrics", {}) or {}
+    insights = result.get("insights", [])
+    direction = "rtl" if lang in RTL_LANGS else "ltr"
+    sev_color = {"HIGH": "#FF4757", "MEDIUM": "#FFB020", "LOW": "#00E5A0"}
+    sev_bg    = {"HIGH": "#2A0E12", "MEDIUM": "#2A1F08", "LOW": "#07251C"}
+
+    wr   = m.get("win_rate") or 0
+    bwr  = m.get("breakeven_wr") or 0
+    expr = m.get("expectancy_R")
+    exp_str = f"{expr:.2f}R" if expr is not None else f"{m.get('expectancy_dollar', 0):.1f}$"
+    high_n = sum(1 for i in insights if i.get("severity") == "HIGH")
+    med_n  = sum(1 for i in insights if i.get("severity") == "MEDIUM")
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+    if source == "upload":
+        src_line, src_c = tx["src_upload_banner"], "#00E5A0"
+    else:
+        src_line, src_c = tx["src_sample_banner"], "#FFB020"
+    src_line = src_line.format(name=trader_id, n=result.get("total_trades", 0))
+
+    def mc(label, value):
+        return (f'<div class="mc"><div class="ml">{safe(label)}</div>'
+                f'<div class="mv">{safe(value)}</div></div>')
+
+    cards = "".join([
+        mc(tx["trades"], result.get("total_trades", 0)),
+        mc(tx["win_rate"], f"{wr*100:.1f}%"),
+        mc(tx["lbl_breakeven"], f"{bwr*100:.1f}%"),
+        mc(tx["profit_factor"], m.get("profit_factor", "—")),
+        mc(tx["expectancy"], exp_str),
+        mc(tx["lbl_sev"], f"{high_n} / {med_n}"),
+    ])
+
+    ins_html, act_html = "", ""
+    for idx, ins in enumerate(insights, 1):
+        sev = ins.get("severity", "LOW")
+        c, bg = sev_color.get(sev, "#00E5A0"), sev_bg.get(sev, "#07251C")
+        title, body, action = get_insight_text(ins, lang)
+        cf = (ins.get("metric_snapshot") or {}).get("counterfactual")
+        cf_html = ""
+        if isinstance(cf, dict):
+            cf_html = (
+                f'<table class="cf"><tr><th></th><th>{safe(tx["cf_current"])}</th><th>{safe(tx["cf_without"])}</th></tr>'
+                f'<tr><td>PF</td><td>{safe(cf.get("current_pf", "—"))}</td>'
+                f'<td>{safe(cf.get("pf_without_segment", "—"))}</td></tr>'
+                f'<tr><td>NET PNL</td><td>{safe(cf.get("current_net_pnl", "—"))}$</td>'
+                f'<td>{safe(cf.get("net_pnl_without_segment", "—"))}$</td></tr></table>')
+        ins_html += (
+            f'<div class="card" style="border-inline-start-color:{c}">'
+            f'<span class="ct">{safe(title)}</span>'
+            f'<span class="badge" style="background:{bg};color:{c};border:1px solid {c}55">{sev}</span>'
+            f'<span class="meta"> · {safe(ins.get("insight_id", ""))} · '
+            f'{safe(tx["insight_meta_conf"])}:{safe(ins.get("confidence", ""))} · '
+            f'n={safe(ins.get("sample_size", ""))}</span>'
+            f'<div class="cb">{safe(body)}</div>{cf_html}'
+            + (f'<div class="act">{safe(action)}</div>' if action else "")
+            + '</div>')
+        if action:
+            act_html += (f'<div class="card"><span class="mono" style="color:#00E5A0">{idx:02d}</span>'
+                         f' &nbsp;{safe(action)}</div>')
+
+    if not ins_html:
+        ins_html = f'<div class="card">{safe(tx["no_issues"])}</div>'
+    if not act_html:
+        act_html = '<div class="card">—</div>'
+
+    warn_html = ""
+    for w in result.get("warnings", []):
+        warn_html += (f'<div class="card" style="border-inline-start-color:#FFB020">'
+                      f'{safe(translate_warning(w, lang))}</div>')
+
+    return f"""<!DOCTYPE html>
+<html dir="{direction}" lang="{lang}">
+<head>
+<meta charset="utf-8">
+<title>Bazar Audit — {safe(trader_id)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Vazirmatn:wght@400;700&display=swap" rel="stylesheet">
+<style>{_REPORT_CSS}</style>
+</head>
+<body>
+<div class="kicker">BAZAR AUDIT — {APP_VERSION.upper()}</div>
+<h1>{safe(tx["title"])}</h1>
+<div class="sub">{safe(tx["subtitle"])}<br>
+<span class="mono">{safe(tx["report_generated"])}: {now}</span></div>
+<div class="srcline" style="color:{src_c};border-color:{src_c}55">{safe(src_line)}</div>
+<h2>{safe(tx["health_summary"])}</h2>
+<div class="grid">{cards}</div>
+{warn_html}
+<h2>{safe(tx["insights_header"])} — {len(insights)}</h2>
+{ins_html}
+<h2>{safe(tx["report_actions"])}</h2>
+{act_html}
+<div class="footer">{safe(tx["disclaimer"])}<br>BAZAR·AUDIT — {APP_VERSION}</div>
+</body></html>"""
 
 
 # ── Engine Import ─────────────────────────────────────────────────────────────
@@ -600,11 +847,12 @@ def save_assignments(data: dict) -> None:
 
 
 def assign_code_for_email(email: str):
-    """برای ایمیل، کد قبلی یا اولین کد آزاد را برمی‌گرداند؛ None یعنی ظرفیت تکمیل."""
+    """v1.2: خروجی (status, code) — status یکی از new / exists / full.
+    برای ایمیل تکراری کد لو نمی‌رود (جلوگیری از برداشت کد دیگران با دانستن ایمیل)."""
     em = email.strip().lower()
     assignments = load_assignments()
     if em in assignments and isinstance(assignments[em], dict):
-        return assignments[em]["code"]
+        return "exists", None
     taken = {v["code"] for v in assignments.values() if isinstance(v, dict)}
     for code in get_invite_codes():
         if code not in taken:
@@ -613,7 +861,7 @@ def assign_code_for_email(email: str):
                 "assigned_at": datetime.now(timezone.utc).isoformat(),
             }
             save_assignments(assignments)
-            return code
+            return "new", code
     # ظرفیت تکمیل → ایمیل در لیست انتظار ثبت می‌شود تا برای دسترسی پولی تماس بگیریم.
     wl = assignments.get("_waitlist", [])
     if not isinstance(wl, list):
@@ -622,12 +870,92 @@ def assign_code_for_email(email: str):
         wl.append(em)
         assignments["_waitlist"] = wl
         save_assignments(assignments)
-    return None
+    return "full", None
+
+
+def _client_ip() -> str:
+    """IP کلاینت از هدرها (روی Streamlit Cloud: X-Forwarded-For). لوکال = local."""
+    try:
+        h = st.context.headers
+        return str(h.get("X-Forwarded-For", h.get("Origin", "local"))).split(",")[0].strip()
+    except Exception:
+        return "unknown"
+
+
+def log_access(event: str, email: str = "", detail: str = "") -> None:
+    """ثبت رخدادهای امنیتی: درخواست کد، تلاش ورود، آپلود — برای بررسی ورود غیرمجاز."""
+    try:
+        try:
+            with open(ACCESS_LOG_FILE, "r", encoding="utf-8") as f:
+                log = json.load(f)
+            if not isinstance(log, list):
+                log = []
+        except Exception:
+            log = []
+        raw_ip = _client_ip()
+        ip_val = raw_ip if raw_ip in ("local", "unknown") else hashlib.sha256(raw_ip.encode()).hexdigest()[:16]
+        log.append({
+            "ts":      datetime.now(timezone.utc).isoformat(),
+            "event":   event,
+            "email":   email.strip().lower(),
+            "detail":  detail,
+            "ip_hash": ip_val,  # فقط برای abuse detection — IP خام ذخیره نمی‌شود
+        })
+        with open(ACCESS_LOG_FILE, "w", encoding="utf-8") as f:
+            json.dump(log[-1000:], f, indent=2, ensure_ascii=False)
+    except Exception:
+        pass
 
 
 def email_hash(email: str) -> str:
     """sha256 از ایمیل trim+lowercase شده — ایمیل خام هیچ‌جا ذخیره نمی‌شود."""
     return hashlib.sha256(email.strip().lower().encode("utf-8")).hexdigest()
+
+
+def get_token_activation(code: str):
+    """v1.4: زمان اولین فعال‌سازی توکن (یا None اگر هنوز فعال نشده)."""
+    acts = load_assignments().get("_activations", {})
+    return acts.get(code) if isinstance(acts, dict) else None
+
+
+def activate_token(code: str) -> None:
+    """v1.4: ثبت اولین فعال‌سازی — فقط بار اول نوشته می‌شود."""
+    data = load_assignments()
+    acts = data.get("_activations")
+    if not isinstance(acts, dict):
+        acts = {}
+    if code not in acts:
+        acts[code] = datetime.now(timezone.utc).isoformat()
+        data["_activations"] = acts
+        save_assignments(data)
+
+
+def token_expired(code: str) -> bool:
+    """v1.4: توکن فعال‌شده‌ای که از پنجره ۲۴ ساعته خارج شده = سوخته."""
+    act = get_token_activation(code)
+    if not act:
+        return False
+    try:
+        t0 = datetime.fromisoformat(act)
+        return (datetime.now(timezone.utc) - t0).total_seconds() > TOKEN_TTL_HOURS * 3600
+    except Exception:
+        return False
+
+
+def email_for_code(code: str):
+    """v1.5: ایمیل ثبت‌نامی متصل به این کد دعوت (None اگر کد دستی توزیع شده)."""
+    for em, rec in load_assignments().items():
+        if isinstance(rec, dict) and rec.get("code") == code:
+            return em
+    return None
+
+
+def email_bound_elsewhere(eh: str, code: str, usage: dict) -> bool:
+    """v1.3: هر ایمیل فقط با یک کد دعوت — استفاده با کد دوم block می‌شود."""
+    for c, rec in usage.items():
+        if c != code and isinstance(rec, dict) and eh in rec.get("emails", []):
+            return True
+    return False
 
 
 def load_beta_usage() -> dict:
@@ -905,6 +1233,13 @@ with st.sidebar:
         st.code(", ".join(sorted(REQUIRED_COLS)))
         st.markdown(f"**{tx['recommended_cols']}:**")
         st.code(", ".join(sorted(RECOMMENDED_COLS)))
+    if st.session_state.get("is_admin"):
+        with st.expander("ACCESS LOG — admin"):
+            try:
+                with open(ACCESS_LOG_FILE, "r", encoding="utf-8") as f:
+                    st.json(json.load(f)[-20:])
+            except Exception:
+                st.caption("no log yet")
     st.divider()
     st.caption(tx["disclaimer"])
 
@@ -917,8 +1252,9 @@ st.markdown(f'<div class="disclaimer">{safe(tx["disclaimer"])}</div>', unsafe_al
 # ── Sample Picker / Upload ────────────────────────────────────────────────────
 # ── Access Gate (v1.1): بدون کد دسترسی، هیچ‌چیز باز نمی‌شود ─────────────────────
 if not st.session_state.get("access_granted", False):
-    # ── صحنه سه‌بعدی ورودی ──────────────────────────────────────────────────────
+    # ── صحنه سه‌بعدی ورودی + باران ماتریکس (v1.4) ──────────────────────────
     components.html(HERO_3D, height=312)
+    components.html(MATRIX_BG, height=292)
 
     _gl, _gc, _gr = st.columns([1, 6, 1])
     with _gc:
@@ -931,9 +1267,13 @@ if not st.session_state.get("access_granted", False):
             if not email_ok:
                 st.warning(tx["beta_invalid_email"])
             else:
-                assigned = assign_code_for_email(req_email)
-                if assigned is None:
+                status, assigned = assign_code_for_email(req_email)
+                log_access("code_request", email=req_email, detail=status)
+                if status == "full":
                     st.error(tx["req_full"])
+                elif status == "exists":
+                    # v1.2: به ایمیل تکراری کد لو نمی‌رود — هر کس ایمیل تو را بداند نباید کدت را بگیرد.
+                    st.warning(tx["req_exists"])
                 else:
                     st.success(tx["req_code_msg"])
                     st.code(assigned)
@@ -944,56 +1284,85 @@ if not st.session_state.get("access_granted", False):
         code_in = st.text_input(tx["access_label"], type="password", key="access_input")
         if st.button(tx["access_btn"], key="access_submit", type="primary"):
             entered = code_in.strip()
-            is_admin  = entered == get_access_code()
-            is_invite = entered in get_invite_codes()
-            if is_admin or is_invite:
+            _admin_code = get_access_code()
+            is_admin  = bool(entered) and bool(_admin_code) and entered == _admin_code
+            is_invite = bool(entered) and entered in get_invite_codes()
+            # v1.4: توکن یکبارمصرف — بعد از اولین فعال‌سازی فقط در پنجره ۲۴ ساعته کار می‌کند
+            if is_invite and token_expired(entered):
+                log_access("unlock_expired", detail=entered)
+                st.error(tx["code_expired"])
+            elif is_admin or is_invite:
+                if is_invite:
+                    activate_token(entered)
+                log_access("unlock_ok", detail=("admin" if is_admin else entered))
                 st.session_state["access_granted"] = True
                 st.session_state["is_admin"]      = is_admin
                 st.session_state["invite_code"]   = entered
                 st.rerun()
             else:
+                log_access("unlock_fail", detail=entered[:16])
                 st.error(tx["access_wrong"])
 
         st.markdown(
             '<div class="bz-status">'
             '<span><span class="bz-dot">●</span> SYSTEM ONLINE</span>'
-            '<span>ENGINE v1.1</span>'
+            '<span>ENGINE v1.6</span>'
             '<span>3 SAMPLE PROFILES</span>'
             '<span>10 BETA SLOTS</span>'
             '</div>', unsafe_allow_html=True)
     st.stop()
 
 if DEMO_MODE:
-    bz_section("01", "pulse", tx["pick_profile"])
-    st.caption(tx["pick_caption"])
+    # ── بنر زنده Matrix صفحه اصلی (v1.3) ─────────────────────────────────
+    components.html(MATRIX_BG, height=292)
 
-    col_g, col_a, col_p = st.columns(3)
+    # v1.5: وقتی فایل کاربر آپلود شده، دموها داخل یک باکس بسته جمع می‌شوند
+    _has_upload = st.session_state.get("beta_df") is not None
     chosen = None
+    if _has_upload:
+        _demo_box = st.expander(tx["demo_expander"], expanded=False)
+    else:
+        bz_section("01", "pulse", tx["pick_profile"])
+        st.caption(tx["pick_caption"])
+        _demo_box = st.container()
 
-    with col_g:
-        if st.button(tx["good_label"], use_container_width=True, key="btn_good"):
-            chosen = "good"
-        st.markdown(f'<div class="sample-narrative good">{safe(tx["good_narrative"])}</div>',
-                    unsafe_allow_html=True)
-    with col_a:
-        if st.button(tx["avg_label"], use_container_width=True, key="btn_average"):
-            chosen = "average"
-        st.markdown(f'<div class="sample-narrative average">{safe(tx["avg_narrative"])}</div>',
-                    unsafe_allow_html=True)
-    with col_p:
-        if st.button(tx["prob_label"], use_container_width=True, key="btn_problem"):
-            chosen = "problem"
-        st.markdown(f'<div class="sample-narrative problem">{safe(tx["prob_narrative"])}</div>',
-                    unsafe_allow_html=True)
+    with _demo_box:
+        col_g, col_a, col_p = st.columns(3)
+        with col_g:
+            if st.button(tx["good_label"], use_container_width=True, key="btn_good"):
+                chosen = "good"
+            st.markdown(f'<div class="sample-narrative good">{safe(tx["good_narrative"])}</div>',
+                        unsafe_allow_html=True)
+        with col_a:
+            if st.button(tx["avg_label"], use_container_width=True, key="btn_average"):
+                chosen = "average"
+            st.markdown(f'<div class="sample-narrative average">{safe(tx["avg_narrative"])}</div>',
+                        unsafe_allow_html=True)
+        with col_p:
+            if st.button(tx["prob_label"], use_container_width=True, key="btn_problem"):
+                chosen = "problem"
+            st.markdown(f'<div class="sample-narrative problem">{safe(tx["prob_narrative"])}</div>',
+                        unsafe_allow_html=True)
 
     # ── Private Upload Beta (v1.1) ────────────────────────────────────────
     st.divider()
     bz_section("02", "upload", tx["beta_header"])
     st.caption(tx["beta_privacy"])
 
+    # وضعیت کد/سهمیه + v1.5: ایمیل آپلود قفل به ایمیل توکن
+    _code     = st.session_state.get("invite_code", "")
+    _is_admin = st.session_state.get("is_admin", False)
+    _usage    = load_beta_usage()
+    _used     = int(_usage.get(_code, {}).get("upload_count", 0))
+    _expected_email = None if _is_admin else email_for_code(_code)
+
     col_e, col_u = st.columns([1, 2])
     with col_e:
-        beta_email = st.text_input(tx["beta_email_label"], key="beta_email")
+        if _expected_email:
+            beta_email = st.text_input(tx["beta_email_label"], value=_expected_email,
+                                       disabled=True, key="beta_email")
+        else:
+            beta_email = st.text_input(tx["beta_email_label"], key="beta_email")
     with col_u:
         beta_file = st.file_uploader(tx["upload_label"], type=["csv"], key="beta_uploader")
 
@@ -1003,11 +1372,6 @@ if DEMO_MODE:
         st.session_state.active_sample = chosen
         st.session_state["view"] = "sample"
 
-    # وضعیت سهمیه این کد دعوت
-    _code     = st.session_state.get("invite_code", "")
-    _is_admin = st.session_state.get("is_admin", False)
-    _usage    = load_beta_usage()
-    _used     = int(_usage.get(_code, {}).get("upload_count", 0))
     if not _is_admin:
         st.caption(tx["beta_quota_status"].format(used=_used, max=MAX_UPLOADS_PER_CODE))
 
@@ -1026,6 +1390,21 @@ if DEMO_MODE:
             st.error(tx["beta_file_too_big"])
         elif not _is_admin and _used >= MAX_UPLOADS_PER_CODE:
             st.error(tx["beta_quota_used"].format(max=MAX_UPLOADS_PER_CODE))
+            log_access("upload_blocked_quota", email=beta_email, detail=_code)
+        elif not _is_admin and _expected_email and beta_email.strip().lower() != _expected_email:
+            # v1.5: آپلود فقط با همان ایمیل صاحب توکن
+            st.error(tx["beta_email_mismatch"])
+            log_access("upload_blocked_mismatch", email=beta_email, detail=_code)
+        elif (not _is_admin and not _expected_email
+              and _usage.get(_code, {}).get("emails")
+              and email_hash(beta_email) != _usage.get(_code, {}).get("emails", [None])[0]):
+            # v1.5: کد دستی — اولین ایمیل استفاده‌شده صاحب کد می‌شود
+            st.error(tx["beta_email_mismatch"])
+            log_access("upload_blocked_mismatch", email=beta_email, detail=_code)
+        elif not _is_admin and email_bound_elsewhere(email_hash(beta_email), _code, _usage):
+            # v1.3: ایمیل تکراری با کد دیگر = block (جلوگیری از چرخاندن یک ایمیل بین کدها)
+            st.error(tx["beta_email_bound"])
+            log_access("upload_blocked_email", email=beta_email, detail=_code)
         else:
             bdf = None
             try:
@@ -1053,6 +1432,10 @@ if DEMO_MODE:
                     st.session_state["beta_trader_id"] = beta_file.name.replace('.csv', '')
                     st.session_state["last_upload_sig"] = sig
                     st.session_state["view"] = "upload"
+                    # رفع ابهام منبع: بعد از آپلود موفق، انتخاب دموی قبلی پاک می‌شود
+                    st.session_state.active_sample = None
+                    log_access("upload_ok", email=beta_email,
+                               detail=f"{beta_file.name}|{len(bdf)} trades|code={_code}")
 
     # ── انتخاب منبع نمایش: آپلود کاربر یا پروفایل نمونه ──────────────────────
     view = st.session_state.get("view")
@@ -1119,10 +1502,51 @@ insights = result.get("insights", [])
 metrics  = result.get("core_metrics", {})
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
-tab_report, tab_data, tab_json = st.tabs([tx["tab_report"], tx["tab_data"], tx["tab_json"]])
+# v1.3: JSON فقط برای ادمین — کاربر نهایی نباید JSON ببیند
+if st.session_state.get("is_admin"):
+    tab_report, tab_data, tab_json = st.tabs([tx["tab_report"], tx["tab_data"], tx["tab_json"]])
+else:
+    tab_report, tab_data = st.tabs([tx["tab_report"], tx["tab_data"]])
+    tab_json = None
 
 # ════════════════════════════════════════════════════════════════════════════
 with tab_report:
+
+    # ── بنر منبع گزارش (رفع ابهام دمو/فایل کاربر — v1.2) ─────────────────────
+    if source == "upload":
+        _src_txt = tx["src_upload_banner"].format(name=trader_id, n=report.total_trades)
+        _src_css = "background:#07251C;border:1px solid #0E4534;color:#4DEFB8;"
+    else:
+        _src_txt = tx["src_sample_banner"].format(name=trader_id, n=report.total_trades)
+        _src_css = "background:#2A1F08;border:1px solid #4A3812;color:#FFC04D;"
+    st.markdown(
+        f'<div style="{_src_css}border-radius:6px;padding:10px 16px;margin-bottom:14px;'
+        f'font-family:JetBrains Mono,monospace;font-size:.74rem;letter-spacing:1.5px;">'
+        f'{safe(_src_txt)}</div>', unsafe_allow_html=True)
+
+    # v1.2: اگر کاربر فایل آپلودشده دارد ولی روی دمو کلیک کرده، راه برگشت همیشه جلوی چشم باشد
+    if source == "sample" and st.session_state.get("beta_df") is not None:
+        if st.button(tx["back_to_upload"], key="back_to_upload_btn", type="primary"):
+            st.session_state["view"] = "upload"
+            st.rerun()
+
+    # ── v1.3: گزارش کامل تک‌کلیکی برای کاربر نهایی (HTML خودکفا) ───────────────
+    try:
+        _full_report = build_report_html(result, tx, lang, trader_id, source)
+        _dl1, _dl2 = st.columns([1, 2])
+        with _dl1:
+            st.download_button(
+                label=tx["report_btn"],
+                data=_full_report.encode("utf-8"),
+                file_name=f"bazar_report_{trader_id}.html",
+                mime="text/html",
+                key="dl_full_report",
+                type="primary",
+            )
+        with _dl2:
+            st.caption(tx["report_hint"])
+    except Exception:
+        pass  # خروجی گزارش نباید هرگز صفحه را بشکند
 
     # narrative banner — فقط برای پروفایل‌های نمونه، نه آپلود کاربر
     if DEMO_MODE and source == "sample":
@@ -1273,12 +1697,13 @@ with tab_data:
     st.dataframe(col_info_df, use_container_width=True)
 
 # ════════════════════════════════════════════════════════════════════════════
-with tab_json:
-    st.subheader(tx["json_title"])
-    st.json(result)
-    st.download_button(
-        label=tx["json_download"],
-        data=json.dumps(result, ensure_ascii=False, indent=2, default=str),
-        file_name=f"bazar_audit_{trader_id}.json",
-        mime="application/json",
-    )
+if tab_json is not None:
+    with tab_json:
+        st.subheader(tx["json_title"])
+        st.json(result)
+        st.download_button(
+            label=tx["json_download"],
+            data=json.dumps(result, ensure_ascii=False, indent=2, default=str),
+            file_name=f"bazar_audit_{trader_id}.json",
+            mime="application/json",
+        )

@@ -16,6 +16,15 @@ def _conf(s: str) -> Confidence:
     return Confidence[s]
 
 
+def _seg_conf(n: int) -> Confidence:
+    """Patch 2 (v1.2): گارد confidence برای سگمنت‌های کوچک — با ۱۳ نمونه نباید MEDIUM داد."""
+    if n < 20:
+        return Confidence["LOW"]
+    if n < 50:
+        return Confidence["MEDIUM"]
+    return Confidence["HIGH"]
+
+
 # ── 0. SAMPLE SIZE GUARD ─────────────────────────────────────────────────────
 
 def insight_sample_size(df: pd.DataFrame):
@@ -56,7 +65,33 @@ def insight_systemic(df: pd.DataFrame, metrics: dict):
         return None
     gap = bwr - wr
     if gap < 0.15 and pf >= 0.50:
-        return None
+        # Patch 1 (v1.2): حالت مرزی — کمی زیر سر-به-سر، نه شکست ساختاری
+        neg_exp = (exp_R < 0) if exp_R is not None else (metrics["expectancy_dollar"] < 0)
+        soft = (n >= 50 and pf < 1.0 and neg_exp and wr < bwr
+                and pf >= 0.80 and (exp_R is None or exp_R > -0.10))
+        if not soft:
+            return None
+        body_fa = (
+            f"استراتژی شما فعلاً کمی زیر سطح سر‌به‌سر است "
+            f"(Win Rate {round(wr*100,1)}٪، حد لازم {round(bwr*100,1)}٪، PF {pf}). "
+            f"قبل از بهینه‌سازی فیلترهای جزئی، باید بررسی شود که هسته اصلی استراتژی "
+            f"بعد از هزینه‌ها edge کافی دارد یا نه."
+        )
+        return Insight(
+            insight_id="EDGE_BELOW_BREAKEVEN",
+            severity=_sev("MEDIUM"), confidence=_conf("MEDIUM"), sample_size=n,
+            metric_snapshot={
+                "win_rate": wr,
+                "breakeven_win_rate": round(bwr, 4),
+                "profit_factor": pf,
+                "expectancy_R": exp_R,
+                "gap_to_breakeven_pct": round(gap * 100, 1),
+            },
+            message="Your strategy is currently slightly below breakeven. Before optimizing individual filters, verify whether the core strategy has enough edge after costs.",
+            recommended_action="Verify core edge after costs (spread/commission) before tuning sessions or symbols.",
+            title_fa="کمی زیر سطح سر‌به‌سر",
+            body_fa=body_fa,
+        )
 
     gap = round((bwr - wr) * 100, 1)
     conf = _conf("HIGH") if n >= 80 else _conf("MEDIUM")
@@ -106,24 +141,34 @@ def insight_session_toxicity(df: pd.DataFrame, metrics: dict):
         return None
 
     worst = min(toxic, key=lambda x: x["avg_pnl"])
-    ses_pnl   = df[df['session'] == worst['session']]['pnl'].sum()
-    total_pnl = df['pnl'].sum()
-    impact_pct = round(abs(ses_pnl / total_pnl * 100), 1) if total_pnl != 0 else 0
+    # Patch 3 (v1.2): counterfactual به جای impact_pct ناپایدار
+    rest = df[df['session'] != worst['session']]
+    rest_gp = rest[rest['pnl'] > 0]['pnl'].sum()
+    rest_gl = abs(rest[rest['pnl'] < 0]['pnl'].sum())
+    pf_without = round(rest_gp / rest_gl, 3) if rest_gl > 0 else None
+    counterfactual = {
+        "current_pf": metrics["profit_factor"],
+        "pf_without_segment": pf_without,
+        "current_net_pnl": round(df['pnl'].sum(), 2),
+        "net_pnl_without_segment": round(rest['pnl'].sum(), 2),
+    }
 
     sev  = _sev("HIGH") if worst["avg_pnl"] < -60 else _sev("MEDIUM")
-    conf = _conf("HIGH") if worst["trades"] >= 15 else _conf("MEDIUM")
+    conf = _seg_conf(worst["trades"])  # Patch 2 (v1.2)
 
     body_fa = (
         f"در سشن {worst['session']} با {worst['trades']} معامله، "
         f"Win Rate شما {round(worst['win_rate']*100,1)}٪ و "
         f"میانگین PnL {worst['avg_pnl']:.2f}$ است. "
-        f"حذف این سشن می‌تواند نتیجه کلی را تا {impact_pct}٪ بهبود دهد."
+        f"بدون این سشن، Profit Factor از {counterfactual['current_pf']} به "
+        f"{pf_without if pf_without is not None else '—'} و نتیجه خالص از "
+        f"{counterfactual['current_net_pnl']}$ به {counterfactual['net_pnl_without_segment']}$ می‌رسید."
     )
 
     return Insight(
         insight_id="SESSION_TOXICITY",
         severity=sev, confidence=conf, sample_size=worst["trades"],
-        metric_snapshot={"worst_session": worst, "all_sessions": results, "impact_pct": impact_pct},
+        metric_snapshot={"worst_session": worst, "all_sessions": results, "counterfactual": counterfactual},
         message=f"Session '{worst['session']}' is consistently unprofitable for you.",
         recommended_action=f"Avoid or reduce trading during '{worst['session']}' session.",
         title_fa=f"سشن {worst['session']} برای شما مضر است",
@@ -169,7 +214,8 @@ def insight_trade_count_cliff(df: pd.DataFrame, metrics: dict):
     body_fa = (
         f"قبل از معامله {cliff}ام روز، Win Rate شما {round(bwr*100,1)}٪ است. "
         f"از معامله {cliff}ام به بعد به {round(awr*100,1)}٪ می‌افتد ({drop} امتیاز). "
-        f"توقف بعد از معامله {cliff-1}ام در هر روز توصیه می‌شود."
+        f"تا وقتی داده بیشتری ثابت نکرده معامله {cliff}ام سودآور است، "
+        f"خودت را به {cliff-1} معامله در روز محدود کن."
     )
 
     return Insight(
@@ -178,7 +224,7 @@ def insight_trade_count_cliff(df: pd.DataFrame, metrics: dict):
         confidence=conf, sample_size=len(df),
         metric_snapshot={"cliff_at_trade": cliff, "before_wr": round(bwr,4), "after_wr": round(awr,4), "drop_pct": drop},
         message=f"Win rate drops sharply after trade #{cliff} each day.",
-        recommended_action=f"Set a hard stop after {cliff-1} trades per day.",
+        recommended_action=f"Limit yourself to {cliff-1} trade(s) per day until more data proves trade #{cliff} is profitable.",
         title_fa=f"بعد از معامله {cliff}ام کیفیت افت می‌کند",
         body_fa=body_fa,
     )
@@ -401,23 +447,34 @@ def insight_symbol_edge(df: pd.DataFrame, metrics: dict):
     toxic = [r for r in results if r["avg_pnl"] < 0]
     if not toxic: return None
 
-    worst     = min(toxic, key=lambda x: x["total_pnl"])
-    total_pnl = df['pnl'].sum()
-    pct = round(abs(worst["total_pnl"] / total_pnl * 100), 1) if total_pnl < 0 else 0
+    worst = min(toxic, key=lambda x: x["total_pnl"])
+    # Patch 3 (v1.2): counterfactual به جای درصد ناپایدار
+    rest = df[df['symbol'] != worst['symbol']]
+    rest_gp = rest[rest['pnl'] > 0]['pnl'].sum()
+    rest_gl = abs(rest[rest['pnl'] < 0]['pnl'].sum())
+    pf_without = round(rest_gp / rest_gl, 3) if rest_gl > 0 else None
+    counterfactual = {
+        "current_pf": metrics["profit_factor"],
+        "pf_without_segment": pf_without,
+        "current_net_pnl": round(df['pnl'].sum(), 2),
+        "net_pnl_without_segment": round(rest['pnl'].sum(), 2),
+    }
 
     body_fa = (
-        f"روی {worst['symbol']} در {worst['trades']} معامله، "
-        f"Win Rate {round(worst['win_rate']*100,1)}٪ و مجموع ضرر {abs(worst['total_pnl']):.2f}$ است. "
-        f"این نماد {pct}٪ از کل ضرر شما را ساخته. در این نماد edge ندارید."
+        f"در این دیتاست، {worst['symbol']} ضعیف‌ترین نماد شماست: "
+        f"{worst['trades']} معامله، Win Rate {round(worst['win_rate']*100,1)}٪، "
+        f"مجموع {worst['total_pnl']:.2f}$. "
+        f"تا زمانی که داده جدید بهبود را تأیید نکرده، حجم یا تعداد معاملاتش را کاهش بده "
+        f"یا موقتاً از پلن فعال خارجش کن."
     )
 
     return Insight(
         insight_id="SYMBOL_NO_EDGE",
-        severity=_sev("MEDIUM"), confidence=_conf("HIGH") if worst["trades"] >= 20 else _conf("MEDIUM"),
+        severity=_sev("MEDIUM"), confidence=_seg_conf(worst["trades"]),
         sample_size=worst["trades"],
-        metric_snapshot={"worst_symbol": worst, "all_symbols": results, "loss_contribution_pct": pct},
-        message=f"No statistical edge on {worst['symbol']}.",
-        recommended_action=f"Remove {worst['symbol']} from your trading plan or paper-trade it first.",
-        title_fa=f"در {worst['symbol']} edge ندارید",
+        metric_snapshot={"worst_symbol": worst, "all_symbols": results, "counterfactual": counterfactual},
+        message=f"{worst['symbol']} is currently your weakest symbol in this dataset.",
+        recommended_action=f"Pause or reduce {worst['symbol']} exposure until more data confirms improvement.",
+        title_fa=f"{worst['symbol']} ضعیف‌ترین نماد شما در این دیتاست",
         body_fa=body_fa,
     )

@@ -10,3 +10,14 @@ _archive/
 .tools/
 beta_usage.json
 code_assignments.json
+access_log.json
+*.uploaded.csv
+
+# اسناد داخلی حاوی کد/استراتژی — هرگز push نشوند
+BAZAR_UPGRADE_REPORT.md
+BAZAR_TIPS_RESPONSE.md
+BAZAR_TEST_AUDIT_REVIEW.md
+BAZAR_MARKET_PLAN.md
+Tips from Khosro
+cmd_cod
+.streamlit/secrets.toml
