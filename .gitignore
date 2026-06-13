@@ -4,6 +4,8 @@ __pycache__/
 .venv/
 venv/
 .streamlit/secrets.toml
+secret
+Bazar_tips-L4-L5-L6-L7
 .DS_Store
 _archive/
 .pytest_cache/

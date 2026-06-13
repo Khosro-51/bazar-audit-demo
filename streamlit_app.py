@@ -30,7 +30,7 @@ if BASE_DIR not in sys.path:
 
 # ── Config ────────────────────────────────────────────────────────────────────
 DEMO_MODE = True
-APP_VERSION = "v2.0"
+APP_VERSION = "v2.1"
 
 # Access code: اول st.secrets، بعد env، بعد مقدار پیش‌فرض.
 # برای production مقدار را در Streamlit Cloud → App settings → Secrets بگذار:
@@ -201,7 +201,7 @@ T = {
     "en": {
         "title":            "Bazar Audit",
         "language":         "Language",
-        "app_version":      "v2.0 — Private Beta",
+        "app_version":      "v2.1 — Private Beta",
         "subtitle":         "Discover what really drives your trading performance.",
         "disclaimer":       "Bazar does not provide buy/sell signals or financial advice. It analyzes trading performance, risk behavior, and strategy structure.",
         "pick_profile":     "Choose a sample trader profile",
@@ -289,12 +289,26 @@ T = {
         "report_hint":       "Opens in any browser — use Print to save as PDF.",
         "report_generated":  "Generated",
         "report_actions":    "Action Plan",
+        "score_label":       "BAZAR SCORE",
+        "score_caption":     "Transparent formula out of 100: Edge 40 + Consistency 20 + Discipline 25 + Data 15. No black box.",
+        "recov_label":       "Recoverable performance (historical)",
+        "recov_note":        "From your own past data: removing the weakest segment would have changed the result by this amount. A historical counterfactual — not a promise of future profit.",
+        "journey_title":     "Your Bazar journey",
+        "journey_1":         "Level 1 — Audit",
+        "journey_2":         "Level 2 — Personal Playbook",
+        "journey_3":         "Level 3 — Progress Mentor",
+        "journey_you":       "YOU ARE HERE",
+        "journey_locked":    "COMING",
+        "l2_cta_header":     "Turn this audit into your action playbook",
+        "l2_cta_caption":    "Level 2 converts these findings into a personal rulebook for your next 30 trades — built only from your own data. Join the waitlist; early testers get first access.",
+        "l2_cta_btn":        "Join the Level 2 waitlist",
+        "l2_cta_done":       "You're on the Level 2 waitlist. We'll contact you by email.",
         "beta_email_bound":  "This email is already linked to another invite code. Each email can be used with one code only.",
     },
     "fa": {
         "title":            "بازار آدیت",
         "language":         "زبان",
-        "app_version":      "نسخه v2.0 — بتای خصوصی",
+        "app_version":      "نسخه v2.1 — بتای خصوصی",
         "subtitle":         "بفهم سود و ضرر معاملاتت واقعاً از کجا می‌آید.",
         "disclaimer":       "Bazar سیگنال خرید و فروش یا مشاوره سرمایه‌گذاری ارائه نمی‌دهد. Bazar عملکرد معاملاتی، رفتار ریسک و ساختار استراتژی را تحلیل می‌کند.",
         "pick_profile":     "یک تریدر نمونه را انتخاب کن",
@@ -382,12 +396,26 @@ T = {
         "report_hint":       "در هر مرورگری باز می‌شود — برای PDF از Print استفاده کن.",
         "report_generated":  "تاریخ صدور",
         "report_actions":    "برنامه اقدام",
+        "score_label":       "نمره بازار",
+        "score_caption":     "فرمول شفاف از ۱۰۰: لبه ۴۰ + ثبات ۲۰ + انضباط ۲۵ + داده ۱۵. هیچ جعبه سیاهی در کار نیست.",
+        "recov_label":       "عملکرد قابل بازیابی (گذشته‌نگر)",
+        "recov_note":        "بر اساس داده گذشته خودت: حذف ضعیف‌ترین بخش، نتیجه را به این اندازه تغییر می‌داد. این محاسبه گذشته‌نگر است — وعده سود آینده نیست.",
+        "journey_title":     "مسیر تو در Bazar",
+        "journey_1":         "سطح ۱ — آدیت",
+        "journey_2":         "سطح ۲ — پلی‌بوک شخصی",
+        "journey_3":         "سطح ۳ — منتور پیشرفت",
+        "journey_you":       "تو اینجایی",
+        "journey_locked":    "به‌زودی",
+        "l2_cta_header":     "این آدیت را به پلن اجرایی تبدیل کن",
+        "l2_cta_caption":    "سطح ۲ همین یافته‌ها را به یک دفترچه قانون شخصی برای ۳۰ معامله بعدی‌ات تبدیل می‌کند — فقط از داده خودت. به لیست انتظار بپیوند؛ تسترهای اولیه زودتر دسترسی می‌گیرند.",
+        "l2_cta_btn":        "عضویت در لیست انتظار سطح ۲",
+        "l2_cta_done":       "در لیست انتظار سطح ۲ ثبت شدی. از طریق ایمیل خبرت می‌کنیم.",
         "beta_email_bound":  "این ایمیل قبلاً با کد دعوت دیگری استفاده شده است. هر ایمیل فقط با یک کد قابل استفاده است.",
     },
     "ar": {
         "title":            "Bazar Audit",
         "language":         "اللغة",
-        "app_version":      "v2.0 — نسخة تجريبية خاصة",
+        "app_version":      "v2.1 — نسخة تجريبية خاصة",
         "subtitle":         "اكتشف ما الذي يقود أداء تداولك فعلياً.",
         "disclaimer":       "لا يقدم Bazar إشارات شراء أو بيع ولا نصائح استثمارية. يقوم Bazar بتحليل أداء التداول وسلوك المخاطر وبنية الاستراتيجية.",
         "pick_profile":     "اختر ملف متداول نموذجياً",
@@ -475,6 +503,20 @@ T = {
         "report_hint":       "يُفتح في أي متصفح — استخدم Print للحفظ كـ PDF.",
         "report_generated":  "تاريخ الإصدار",
         "report_actions":    "خطة العمل",
+        "score_label":       "درجة بازار",
+        "score_caption":     "معادلة شفافة من 100: الأفضلية 40 + الثبات 20 + الانضباط 25 + البيانات 15. لا صندوق أسود.",
+        "recov_label":       "أداء قابل للاسترداد (تاريخي)",
+        "recov_note":        "وفق بياناتك السابقة: حذف أضعف جزء كان سيغيّر النتيجة بهذا المقدار. حساب تاريخي — ليس وعداً بربح مستقبلي.",
+        "journey_title":     "رحلتك في Bazar",
+        "journey_1":         "المستوى 1 — التدقيق",
+        "journey_2":         "المستوى 2 — دفتر قواعد شخصي",
+        "journey_3":         "المستوى 3 — مرشد التقدم",
+        "journey_you":       "أنت هنا",
+        "journey_locked":    "قريباً",
+        "l2_cta_header":     "حوّل هذا التدقيق إلى خطة تنفيذ",
+        "l2_cta_caption":    "المستوى 2 يحوّل هذه النتائج إلى دفتر قواعد شخصي لصفقاتك الثلاثين القادمة — من بياناتك فقط. انضم إلى قائمة الانتظار؛ الأوائل يحصلون على الوصول أولاً.",
+        "l2_cta_btn":        "الانضمام إلى قائمة انتظار المستوى 2",
+        "l2_cta_done":       "تم تسجيلك في قائمة انتظار المستوى 2. سنتواصل معك عبر البريد.",
         "beta_email_bound":  "هذا البريد مرتبط برمز دعوة آخر. كل بريد يُستخدم مع رمز واحد فقط.",
     },
 }
@@ -646,6 +688,124 @@ def translate_warning(warning: str, lang: str) -> str:
     return warning
 
 
+# ── v2.1: نمره بازار + کارت بازیابی + نوار سفر ─────────────────────────────
+
+def compute_bazar_score(result: dict):
+    """نمره ۰-۱۰۰ با فرمول شفاف — فقط از متریک‌های واقعی موتور:
+    Edge 40 (expectancy_R از −0.3 تا +0.3) + Consistency 20 (PF از 0.8 تا 1.5)
+    + Discipline 25 (منهای ۱۰ برای هر یافته HIGH و ۵ برای هر MEDIUM —
+    مشاهده‌ها کم نمی‌کنند چون شواهدشان کافی نیست) + Data 15 (تعداد معامله تا ۳۰۰)."""
+    m = result.get("core_metrics", {}) or {}
+    insights = result.get("insights", [])
+    n = int(result.get("total_trades", 0) or 0)
+
+    def _clamp(x):
+        return max(0.0, min(1.0, x))
+
+    expr = m.get("expectancy_R")
+    if expr is None:
+        # بدون R: تقریب از PF
+        expr = (float(m.get("profit_factor") or 0) - 1.0) * 0.3
+    edge = _clamp((float(expr) + 0.3) / 0.6) * 40
+
+    pf = float(m.get("profit_factor") or 0)
+    consistency = _clamp((pf - 0.8) / 0.7) * 20
+
+    discipline = 25.0
+    for ins in insights:
+        if (ins.get("metric_snapshot") or {}).get("observation"):
+            continue
+        if str(ins.get("insight_id", "")).startswith("SAMPLE_SIZE"):
+            continue
+        sev = ins.get("severity")
+        if sev == "HIGH":
+            discipline -= 10
+        elif sev == "MEDIUM":
+            discipline -= 5
+    discipline = max(0.0, discipline)
+
+    data_score = _clamp(n / 300.0) * 15
+    total = int(round(edge + consistency + discipline + data_score))
+    return total, {"edge": round(edge, 1), "consistency": round(consistency, 1),
+                   "discipline": round(discipline, 1), "data": round(data_score, 1)}
+
+
+def biggest_recoverable(insights):
+    """بزرگ‌ترین بهبود گذشته‌نگر از counterfactual یافته‌های معنادار (نه مشاهده‌ها)."""
+    best = None
+    for ins in insights:
+        snap = ins.get("metric_snapshot") or {}
+        if snap.get("observation"):
+            continue
+        cf = snap.get("counterfactual")
+        if not isinstance(cf, dict):
+            continue
+        try:
+            delta = float(cf.get("net_pnl_without_segment")) - float(cf.get("current_net_pnl"))
+        except (TypeError, ValueError):
+            continue
+        if delta > 0 and (best is None or delta > best[0]):
+            best = (delta, ins.get("insight_id", ""))
+    return best
+
+
+def _score_color(score: int) -> str:
+    return "#00E5A0" if score >= 70 else ("#FFB020" if score >= 40 else "#FF4757")
+
+
+def score_panel_html(score: int, parts: dict, recov, tx: dict) -> str:
+    """پنل نمره + کارت بازیابی — هم در اپ هم در گزارش HTML."""
+    c = _score_color(score)
+    recov_html = ""
+    if recov:
+        recov_html = (
+            f'<div style="background:#0D1117;border:1px solid #1C2530;border-top:2px solid #FFB020;'
+            f'border-radius:6px;padding:14px 20px;min-width:230px;flex:1">'
+            f'<div style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:1.5px;'
+            f'color:#5B6B7C;text-transform:uppercase">{safe(tx["recov_label"])}</div>'
+            f'<div style="font-family:JetBrains Mono,monospace;font-size:30px;font-weight:700;'
+            f'color:#FFB020;margin-top:4px">+{recov[0]:,.0f}$</div>'
+            f'<div style="font-size:11.5px;color:#5B6B7C;line-height:1.6;margin-top:6px">'
+            f'{safe(tx["recov_note"])}</div></div>')
+    return (
+        f'<div style="display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 16px 0">'
+        f'<div style="background:#0D1117;border:1px solid #1C2530;border-top:2px solid {c};'
+        f'border-radius:6px;padding:14px 20px;min-width:200px">'
+        f'<div style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:1.5px;'
+        f'color:#5B6B7C;text-transform:uppercase">{safe(tx["score_label"])}</div>'
+        f'<div style="font-family:JetBrains Mono,monospace;font-size:44px;font-weight:700;'
+        f'color:{c};line-height:1.1">{score}<span style="font-size:16px;color:#5B6B7C"> /100</span></div>'
+        f'<div style="font-family:JetBrains Mono,monospace;font-size:9.5px;color:#5B6B7C;margin-top:4px">'
+        f'EDGE {parts["edge"]} · CONSIST {parts["consistency"]} · DISCIPLINE {parts["discipline"]} · DATA {parts["data"]}</div>'
+        f'<div style="font-size:11px;color:#5B6B7C;line-height:1.6;margin-top:6px">{safe(tx["score_caption"])}</div>'
+        f'</div>{recov_html}</div>')
+
+
+def journey_html(tx: dict) -> str:
+    """نوار سفر سه‌مرحله‌ای — کاربر وسط مسیر است، نه آخرش."""
+    def step(label, state):
+        if state == "active":
+            bc, tc = "#00E5A0", "#EDF2F7"
+            badge = (f'<span style="color:#06140E;background:#00E5A0;border-radius:3px;'
+                     f'padding:1px 7px;font-size:9px;font-weight:700;letter-spacing:1px">'
+                     f'{safe(tx["journey_you"])}</span>')
+        else:
+            bc, tc = "#1C2530", "#5B6B7C"
+            badge = (f'<span style="color:#5B6B7C;border:1px solid #1C2530;border-radius:3px;'
+                     f'padding:1px 7px;font-size:9px;letter-spacing:1px">'
+                     f'{safe(tx["journey_locked"])}</span>')
+        return (f'<div style="flex:1;min-width:150px;background:#0D1117;border:1px solid {bc};'
+                f'border-radius:6px;padding:11px 14px">'
+                f'<div style="font-size:12.5px;font-weight:700;color:{tc};margin-bottom:5px">{safe(label)}</div>{badge}</div>')
+    return (
+        f'<div style="margin:18px 0 6px 0">'
+        f'<div style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:2px;'
+        f'color:#5B6B7C;text-transform:uppercase;margin-bottom:8px">{safe(tx["journey_title"])}</div>'
+        f'<div style="display:flex;gap:10px;flex-wrap:wrap">'
+        f'{step(tx["journey_1"], "active")}{step(tx["journey_2"], "locked")}{step(tx["journey_3"], "locked")}'
+        f'</div></div>')
+
+
 # v2.0: متن‌های عمومی حالت observation (برای عربی که body استاتیک دارد + action فارسی/عربی)
 OBS_BODY_AR = {
     "SESSION_TOXICITY": "في بياناتك الحالية تبدو إحدى الجلسات ضعيفة، لكن الأدلة لا تكفي بعد لحكم قاطع. مع المزيد من الصفقات تتحسن قوة الحكم.",
@@ -699,7 +859,7 @@ def get_insight_text(ins: dict, lang: str) -> tuple:
 
 
 # ── گزارش HTML تک‌کلیکی برای کاربر نهایی (v1.3) ──────────────────────────────
-_REPORT_CSS = """
+_REPORT_CSS = """ {EXTRAS_CSS} """.replace("{EXTRAS_CSS}", EXTRAS_CSS) + """
 body{background:#07090C;color:#C9D4DF;font-family:'Vazirmatn','Inter',sans-serif;
      margin:0;padding:40px 6%;line-height:1.7}
 .mono{font-family:'JetBrains Mono',monospace}
@@ -735,6 +895,11 @@ table.cf th{color:#5B6B7C;font-size:10px;letter-spacing:1px}
 
 def build_report_html(result: dict, tx: dict, lang: str, trader_id: str, source: str) -> str:
     """گزارش کامل خودکفا برای کاربر نهایی — بدون نیاز به دانستن JSON."""
+    # v2.1 psychological conversion layer
+    _score_html   = bazar_score_html(result, lang)
+    _recover_html = recoverable_card_html(result.get("insights", []), lang)
+    _journey_html = journey_bar_html(lang)
+    _cta_html     = cta_block_html(lang)
     m        = result.get("core_metrics", {}) or {}
     insights = result.get("insights", [])
     direction = "rtl" if lang in RTL_LANGS else "ltr"
@@ -821,13 +986,17 @@ def build_report_html(result: dict, tx: dict, lang: str, trader_id: str, source:
 <span class="mono">{safe(tx["report_generated"])}: {now}</span></div>
 <div class="srcline" style="color:{src_c};border-color:{src_c}55">{safe(src_line)}</div>
 <h2>{safe(tx["health_summary"])}</h2>
+{_score_html}
+{_recover_html}
 <div class="grid">{cards}</div>
 {warn_html}
 <h2>{safe(tx["insights_header"])} — {len(insights)}</h2>
 {ins_html}
 <h2>{safe(tx["report_actions"])}</h2>
 {act_html}
-<div class="footer">{safe(tx["disclaimer"])}<br>BAZAR·AUDIT — {APP_VERSION}</div>
+{_journey_html}
+{_cta_html}
+<div class="footer">{safe(tx["disclaimer"])}<br>BAZAR·AUDIT — v2.1</div>
 </body></html>"""
 
 
@@ -1006,6 +1175,11 @@ try:
 except Exception as e:
     audit_from_df = None
     ENGINE_ERROR  = e
+
+from bazar_report_extras import (
+    bazar_score_html, recoverable_card_html,
+    journey_bar_html, cta_block_html, EXTRAS_CSS
+)
 
 # ── Page Config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -1332,7 +1506,7 @@ if not st.session_state.get("access_granted", False):
         st.markdown(
             '<div class="bz-status">'
             '<span><span class="bz-dot">●</span> SYSTEM ONLINE</span>'
-            '<span>ENGINE v2.0</span>'
+            '<span>ENGINE v2.1</span>'
             '<span>3 SAMPLE PROFILES</span>'
             '<span>10 BETA SLOTS</span>'
             '</div>', unsafe_allow_html=True)
