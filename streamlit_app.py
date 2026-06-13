@@ -30,7 +30,7 @@ if BASE_DIR not in sys.path:
 
 # ── Config ────────────────────────────────────────────────────────────────────
 DEMO_MODE = True
-APP_VERSION = "v2.1"
+APP_VERSION = "v2.2"
 
 # Access code: اول st.secrets، بعد env، بعد مقدار پیش‌فرض.
 # برای production مقدار را در Streamlit Cloud → App settings → Secrets بگذار:
@@ -1000,7 +1000,7 @@ def build_report_html(result: dict, tx: dict, lang: str, trader_id: str, source:
 {act_html}
 {_journey_html}
 {_cta_html}
-<div class="footer">{safe(tx["disclaimer"])}<br>BAZAR·AUDIT — v2.1</div>
+<div class="footer">{safe(tx["disclaimer"])}<br>BAZAR·AUDIT — v2.2</div>
 </body></html>"""
 
 

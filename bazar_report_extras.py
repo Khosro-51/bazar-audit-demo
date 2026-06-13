@@ -61,8 +61,8 @@ def bazar_score(result: dict) -> int:
     return max(0, min(100, round(raw)))
 
 
-def score_label(score: int, lang: str) -> str:
-    """Human label for the score band."""
+def score_label(score: int, lang: str, exp_r: float = 0.0) -> str:
+    """Human label for the score band. If exp_r<0 and score in 60-79, flag as inconclusive."""
     bands = {
         "en": [
             (80, "Strong"),
@@ -83,8 +83,12 @@ def score_label(score: int, lang: str) -> str:
             (0,  "حرج"),
         ],
     }
+    inc_suffix = {"en": " — inconclusive sample", "fa": " — شواهد ناکافی", "ar": " — عينة غير حاسمة"}
     for threshold, label in bands.get(lang, bands["en"]):
         if score >= threshold:
+            # if negative expectancy but score in 'Developing' band, add qualifier
+            if exp_r < 0 and 60 <= score < 80:
+                return label + inc_suffix.get(lang, inc_suffix["en"])
             return label
     return ""
 
@@ -100,7 +104,8 @@ def score_color(score: int) -> str:
 def bazar_score_html(result: dict, lang: str) -> str:
     score = bazar_score(result)
     color = score_color(score)
-    label = score_label(score, lang)
+    exp_r = (result.get("core_metrics") or {}).get("expectancy_R", 0) or 0
+    label = score_label(score, lang, exp_r)
     pct = score  # for arc fill
 
     titles = {"en": "Bazar Score", "fa": "نمره بازار", "ar": "نقاط بازار"}
@@ -183,17 +188,49 @@ def recoverable_card_html(insights: list, lang: str) -> str:
         "fa": "بر اساس معاملات واقعی شما — گذشته‌نگر، نه وعده.",
         "ar": "بناءً على صفقاتك الفعلية — استرجاعي، وليس وعداً.",
     }
-    rows_html = ""
+    # split by evidence: confirmed (p<0.05, not obs) vs watchlist
+    confirmed_items = []
+    watch_items = []
     for seg, delta in items:
-        rows_html += f'<div class="bz-cf-row"><span>{seg}</span><span class="bz-cf-num">+{delta:,.0f}$</span></div>\n'
+        # find the matching insight to check p_value and observation
+        p_val = None
+        is_obs = True
+        for ins in insights:
+            snap2 = ins.get("metric_snapshot") or {}
+            seg_key = ins.get("insight_id", "")
+            ws = snap2.get("worst_session") or snap2.get("worst_symbol") or {}
+            seg_name2 = ws.get("session") or ws.get("symbol") or ""
+            if seg_name2 == seg:
+                p_val  = snap2.get("p_value")
+                is_obs = bool(snap2.get("observation", True))
+                break
+        if not is_obs and p_val is not None and p_val < 0.05:
+            confirmed_items.append((seg, delta))
+        else:
+            watch_items.append((seg, delta, p_val))
 
-    return f"""
-<div class="bz-recover-block">
-  <div class="bz-recover-title">{titles.get(lang, titles["en"])}</div>
-  <div class="bz-recover-total">+{total:,.0f}$</div>
-  {rows_html}
-  <div class="bz-recover-note">{notes.get(lang, notes["en"])}</div>
-</div>"""
+    parts = []
+
+    if confirmed_items:
+        total_c = sum(d for _, d in confirmed_items)
+        rows_c = "".join(f'<div class="bz-cf-row"><span>{s}</span><span class="bz-cf-num">+{d:,.0f}$</span></div>' for s,d in confirmed_items)
+        ctitles = {"en":"Confirmed Recoverable","fa":"بازیابی تأییدشده","ar":"قابل استرداد مؤكد"}
+        cnotes  = {"en":"Statistically confirmed (p<0.05) — retrospective, not a guarantee.","fa":"تأیید آماری (p<0.05) — گذشته‌نگر، نه تضمین.","ar":"مؤكد إحصائيًا — استرجاعي وليس ضمانا."}
+        parts.append(f'<div class="bz-recover-block"><div class="bz-recover-title">{ctitles.get(lang,ctitles["en"])}</div><div class="bz-recover-total">+{total_c:,.0f}$</div>{rows_c}<div class="bz-recover-note">{cnotes.get(lang,cnotes["en"])}</div></div>')
+    else:
+        msgs = {"en":"No statistically confirmed recoverable drag yet. Keep logging trades.","fa":"هنوز هیچ زیانی تأییدشده‌ای وجود ندارد. به ثبت معاملات ادامه دهید.","ar":"لا مؤكد إحصائيًا حتى الآن."}
+        parts.append(f'<div class="bz-recover-block bz-recover-neutral"><div class="bz-recover-note" style="font-size:13px">{msgs.get(lang,msgs["en"])}</div></div>')
+
+    if watch_items:
+        wtitles = {"en":"Watchlist Drag (unconfirmed)","fa":"زیان مشاهده‌شده (تأییدنشده)","ar":"خسائر ملاحظة (غير مؤكدة)"}
+        wnotes  = {"en":"Historical what-if only. Not confirmed improvement opportunities.","fa":"فقط اعداد فرضی گذشته. فرصت بهبود تأیید نشده.","ar":"أرقام افتراضية تاريخية فقط."}
+        wrows = "".join(
+            f'<div class="bz-cf-row"><span>{s}</span><span class="bz-watch-num">~+{d:,.0f}$</span>{(" <span class=bz-watch-p>(p="+f"{p:.2f})</span>") if p is not None else ""}</div>'
+            for s,d,p in watch_items
+        )
+        parts.append(f'<div class="bz-watch-block"><div class="bz-recover-title">{wtitles.get(lang,wtitles["en"])}</div>{wrows}<div class="bz-recover-note">{wnotes.get(lang,wnotes["en"])}</div></div>')
+
+    return "\n".join(parts)
 
 
 # ── 3. JOURNEY BAR ────────────────────────────────────────────────────────────
@@ -276,6 +313,11 @@ EXTRAS_CSS = """
 .bz-cf-row{display:flex;justify-content:space-between;font-size:13px;color:#c9d1d9;padding:3px 0;}
 .bz-cf-num{color:#00E5A0;font-family:'JetBrains Mono',monospace;}
 .bz-recover-note{font-size:11px;color:#586069;margin-top:10px;font-style:italic;}
+.bz-recover-neutral{border-left-color:#586069;}
+.bz-recover-neutral .bz-recover-note{color:#8892a4;font-size:13px;font-style:normal;}
+.bz-watch-block{background:#0D1117;border:1px solid #1C2530;border-left:3px solid #586069;border-radius:8px;padding:18px 20px;margin:12px 0;}
+.bz-watch-num{color:#8892a4;font-family:'JetBrains Mono',monospace;}
+.bz-watch-p{color:#586069;font-size:11px;margin-left:6px;}
 
 /* ── Journey bar ── */
 .bz-journey-block{margin:24px 0;text-align:center;}
