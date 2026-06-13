@@ -103,8 +103,9 @@ def score_color(score: int) -> str:
 
 def bazar_score_html(result: dict, lang: str) -> str:
     score = bazar_score(result)
-    color = score_color(score)
     exp_r = (result.get("core_metrics") or {}).get("expectancy_R", 0) or 0
+    # if expectancy is negative, cap color at amber regardless of score
+    color = score_color(score) if exp_r >= 0 else ("#FFB020" if score >= 40 else "#FF4757")
     label = score_label(score, lang, exp_r)
     pct = score  # for arc fill
 
@@ -233,7 +234,120 @@ def recoverable_card_html(insights: list, lang: str) -> str:
     return "\n".join(parts)
 
 
-# ── 3. JOURNEY BAR ────────────────────────────────────────────────────────────
+# ── 3. EQUITY CURVE ───────────────────────────────────────────────────────────────────
+
+def equity_curve_html(result: dict, lang: str) -> str:
+    """
+    Inline SVG equity curve (cumulative PnL over trade number).
+    Annotates session/symbol from trade_meta if available.
+    Observations get markers only; confirmed findings could get a dashed counterfactual line.
+    """
+    pnl_series = result.get("pnl_series") or []
+    trade_meta = result.get("trade_meta") or []
+    if len(pnl_series) < 2:
+        return ""
+
+    # cumulative pnl
+    cum = []
+    total = 0.0
+    for p in pnl_series:
+        total += p
+        cum.append(total)
+
+    n       = len(cum)
+    W, H    = 660, 220
+    PAD_L, PAD_R, PAD_T, PAD_B = 52, 16, 16, 36
+    chart_w = W - PAD_L - PAD_R
+    chart_h = H - PAD_T - PAD_B
+
+    y_min = min(cum)
+    y_max = max(cum)
+    y_range = y_max - y_min if y_max != y_min else 1
+
+    def cx(i):  return PAD_L + (i / (n - 1)) * chart_w
+    def cy(v):  return PAD_T + chart_h - ((v - y_min) / y_range) * chart_h
+
+    # get toxic segment names from insights
+    watch_sessions = set()
+    watch_symbols  = set()
+    for ins in result.get("insights", []):
+        snap = ins.get("metric_snapshot") or {}
+        sid  = ins.get("insight_id", "")
+        if sid == "SESSION_TOXICITY":
+            ws = (snap.get("worst_session") or {}).get("session", "")
+            if ws: watch_sessions.add(ws)
+        elif sid == "SYMBOL_NO_EDGE":
+            ws = (snap.get("worst_symbol") or {}).get("symbol", "")
+            if ws: watch_symbols.add(ws)
+
+    # zero line
+    zero_y = cy(0)
+    zero_line = f'<line x1="{PAD_L}" y1="{zero_y:.1f}" x2="{W-PAD_R}" y2="{zero_y:.1f}" stroke="#2d3748" stroke-width="1" stroke-dasharray="4 3"/>'
+
+    # main polyline
+    pts = " ".join(f"{cx(i):.1f},{cy(v):.1f}" for i, v in enumerate(cum))
+    line = f'<polyline points="{pts}" fill="none" stroke="#00E5A0" stroke-width="2" stroke-linejoin="round"/>'
+
+    # shaded area under curve
+    area_pts  = f"{PAD_L:.1f},{cy(0):.1f} " + pts + f" {cx(n-1):.1f},{cy(0):.1f}"
+    area      = f'<polygon points="{area_pts}" fill="#00E5A0" fill-opacity="0.07"/>'
+
+    # watchlist markers (small triangles for weak sessions/symbols)
+    markers = ""
+    for i, meta in enumerate(trade_meta[:n]):
+        sess = meta.get("session", "")
+        sym  = meta.get("symbol", "")
+        if sess in watch_sessions or sym in watch_symbols:
+            mx, my = cx(i), cy(cum[i])
+            markers += f'<circle cx="{mx:.1f}" cy="{my:.1f}" r="3" fill="#FFB020" fill-opacity="0.7" title="{sess}/{sym}"/>'
+
+    # y-axis labels (3 ticks)
+    y_labels = ""
+    for frac in [0, 0.5, 1.0]:
+        val = y_min + frac * y_range
+        yp  = cy(val)
+        y_labels += f'<text x="{PAD_L-6}" y="{yp+4:.1f}" text-anchor="end" font-size="9" fill="#586069">{val:+,.0f}</text>'
+        y_labels += f'<line x1="{PAD_L-3}" y1="{yp:.1f}" x2="{PAD_L}" y2="{yp:.1f}" stroke="#586069" stroke-width="1"/>'
+
+    # x-axis labels
+    x_labels = ""
+    for frac in [0, 0.25, 0.5, 0.75, 1.0]:
+        idx = int(frac * (n - 1))
+        xp  = cx(idx)
+        x_labels += f'<text x="{xp:.1f}" y="{H-PAD_B+14}" text-anchor="middle" font-size="9" fill="#586069">#{idx+1}</text>'
+
+    # axis lines
+    axes = (f'<line x1="{PAD_L}" y1="{PAD_T}" x2="{PAD_L}" y2="{H-PAD_B}" stroke="#2d3748" stroke-width="1"/>'
+            f'<line x1="{PAD_L}" y1="{H-PAD_B}" x2="{W-PAD_R}" y2="{H-PAD_B}" stroke="#2d3748" stroke-width="1"/>')
+
+    # legend
+    titles = {"en": "Cumulative P&L", "fa": "سود و زیان تجمیعی", "ar": "الربح والخسارة التراكمي"}
+    subs   = {
+        "en": "🟡 = watchlist segment (unconfirmed)",
+        "fa": "🟡 = سگمنت تحت نظر (تأییدنشده)",
+        "ar": "🟡 = شريحة مراقبة (غير مؤكدة)",
+    }
+    title = titles.get(lang, titles["en"])
+    sub   = (subs.get(lang, subs["en"]) if (watch_sessions or watch_symbols) else "")
+
+    svg = f"""
+<div class="bz-equity-block">
+  <div class="bz-recover-title">{title}</div>
+  <svg width="100%" viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" style="max-width:{W}px">
+    {zero_line}
+    {axes}
+    {area}
+    {line}
+    {markers}
+    {y_labels}
+    {x_labels}
+  </svg>
+  {('<div class="bz-equity-sub">' + sub + '</div>') if sub else ''}
+</div>"""
+    return svg
+
+
+# ── 4. JOURNEY BAR ────────────────────────────────────────────────────────────
 
 def journey_bar_html(lang: str) -> str:
     labels = {
@@ -334,4 +448,9 @@ EXTRAS_CSS = """
 .bz-cta-body{font-size:13px;color:#8892a4;margin-bottom:18px;line-height:1.6;}
 .bz-cta-btn{display:inline-block;padding:11px 28px;background:#00E5A0;color:#07090C;font-weight:700;font-size:14px;border-radius:6px;text-decoration:none;letter-spacing:.03em;}
 .bz-cta-btn:hover{background:#00c98a;}
+
+/* ── Equity curve ── */
+.bz-equity-block{background:#0D1117;border:1px solid #1C2530;border-radius:8px;padding:16px 20px;margin:20px 0;overflow:hidden;}
+.act-obs{font-size:13px;color:#8892a4;border-inline-start:2px solid #586069;padding-inline-start:10px;margin-top:10px;font-style:italic;}
+.bz-equity-sub{font-size:11px;color:#586069;margin-top:6px;}
 """

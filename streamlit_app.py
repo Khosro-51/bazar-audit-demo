@@ -30,7 +30,7 @@ if BASE_DIR not in sys.path:
 
 # ── Config ────────────────────────────────────────────────────────────────────
 DEMO_MODE = True
-APP_VERSION = "v2.2"
+APP_VERSION = "v2.4"
 
 # Access code: اول st.secrets، بعد env، بعد مقدار پیش‌فرض.
 # برای production مقدار را در Streamlit Cloud → App settings → Secrets بگذار:
@@ -137,9 +137,9 @@ let W,H;function rs(){W=cv.width=wrap.clientWidth;H=cv.height=wrap.clientHeight;
 window.addEventListener('resize',rs);
 const TERM_H=84;const GROUND=()=>H-TERM_H;
 const CHARS='アイウエオカキクケコ01$+-*/=%#@&BZRAUDIT';
-const MSGS=['> session.toxicity probe','> symbol.edge compute','> payoff.matrix align',
-            '> drawdown.guard active','> post-loss.decay trace','> expectancy.R stream',
-            '> cliff.detector armed','> audit.pipeline OK'];
+const MSGS=['> audit.kernel online','> session.toxicity probe','> symbol.edge compute',
+            '> edge.below_breakeven scan','> trade.count.cliff detector','> risk.behavior map',
+            '> expectancy.R stream','> power.check permutation','> audit.pipeline OK'];
 let drops=[],cols=[],term=['BAZAR://init diagnostic core','> edge.scan OK'],tick=0;
 function loop(){
   ctx.fillStyle='rgba(7,9,12,.18)';ctx.fillRect(0,0,W,H);
@@ -201,8 +201,8 @@ T = {
     "en": {
         "title":            "Bazar Audit",
         "language":         "Language",
-        "app_version":      "v2.1 — Private Beta",
-        "subtitle":         "Discover what really drives your trading performance.",
+        "app_version":      f"{APP_VERSION} — Private Beta",
+        "subtitle":         "Trading Performance Intelligence",
         "disclaimer":       "Bazar does not provide buy/sell signals or financial advice. It analyzes trading performance, risk behavior, and strategy structure.",
         "pick_profile":     "Choose a sample trader profile",
         "pick_caption":     "Three realistic profiles — see how Bazar thinks.",
@@ -267,11 +267,12 @@ T = {
         "beta_quota_status": "Uploads used with this invite code: {used} of {max}",
         "beta_quota_used":   "This invite code has used all its free audits ({max} of {max}). Contact us to unlock more reports.",
         "req_header":        "Don't have a code?",
-        "req_caption":       "Enter your email to receive a free beta access code. Limited capacity — first come, first served.",
-        "req_btn":           "Get my free access code",
+        "req_caption":       "Enter your email to receive a one-time access code. Private beta access is limited while we review real trading statements manually.",
+        "req_btn":           "Send Access Code",
+        "req_code_sent":      "Access code sent to your email. Check your inbox (and spam folder).",
         "req_code_msg":      "Your personal access code (save it for future logins):",
         "req_use_hint":      "Now enter this code in the field below and press Unlock.",
-        "req_full":          "Free beta capacity is full. Paid access is coming soon — leave us your email and we will contact you.",
+        "req_full":          "Beta capacity is full. Paid access is coming soon — leave your email and we will reach out.",
         "viz3d_header":      "3D Trade Map",
         "viz3d_caption":     "Every trade in 3D space: hour of day × trading day × result. Drag to rotate, scroll to zoom — clusters of red show exactly where your account bleeds.",
         "src_upload_banner": "REPORT SOURCE: YOUR FILE — {name} · {n} trades",
@@ -283,8 +284,10 @@ T = {
         "demo_expander":     "Demo profiles (for reference — not your data)",
         "lbl_breakeven":     "Breakeven WR",
         "lbl_sev":           "High / Medium",
+        "lbl_obs_count":     "Observations",
         "cf_current":        "CURRENT",
         "cf_without":        "WITHOUT",
+        "cf_without_obs":    "Historical What-if",
         "report_btn":        "Download Full Report",
         "report_hint":       "Opens in any browser — use Print to save as PDF.",
         "report_generated":  "Generated",
@@ -860,7 +863,7 @@ def get_insight_text(ins: dict, lang: str) -> tuple:
 
 # ── گزارش HTML تک‌کلیکی برای کاربر نهایی (v1.3) ──────────────────────────────
 from bazar_report_extras import (
-    bazar_score_html, recoverable_card_html,
+    bazar_score_html, recoverable_card_html, equity_curve_html,
     journey_bar_html, cta_block_html, EXTRAS_CSS
 )
 _REPORT_CSS = """ {EXTRAS_CSS} """.replace("{EXTRAS_CSS}", EXTRAS_CSS) + """
@@ -902,6 +905,7 @@ def build_report_html(result: dict, tx: dict, lang: str, trader_id: str, source:
     # v2.1 psychological conversion layer
     _score_html   = bazar_score_html(result, lang)
     _recover_html = recoverable_card_html(result.get("insights", []), lang)
+    _equity_html  = equity_curve_html(result, lang)
     _journey_html = journey_bar_html(lang)
     _cta_html     = cta_block_html(lang)
     m        = result.get("core_metrics", {}) or {}
@@ -916,6 +920,7 @@ def build_report_html(result: dict, tx: dict, lang: str, trader_id: str, source:
     exp_str = f"{expr:.2f}R" if expr is not None else f"{m.get('expectancy_dollar', 0):.1f}$"
     high_n = sum(1 for i in insights if i.get("severity") == "HIGH")
     med_n  = sum(1 for i in insights if i.get("severity") == "MEDIUM")
+    obs_n  = sum(1 for i in insights if i.get("observation", False))
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
     if source == "upload":
@@ -935,18 +940,21 @@ def build_report_html(result: dict, tx: dict, lang: str, trader_id: str, source:
         mc(tx["profit_factor"], m.get("profit_factor", "—")),
         mc(tx["expectancy"], exp_str),
         mc(tx["lbl_sev"], f"{high_n} / {med_n}"),
+        mc(tx.get("lbl_obs_count", "Observations"), str(obs_n)),
     ])
 
     ins_html, act_html = "", ""
     for idx, ins in enumerate(insights, 1):
         sev = ins.get("severity", "LOW")
-        c, bg = sev_color.get(sev, "#00E5A0"), sev_bg.get(sev, "#07251C")
+        is_obs = ins.get("observation", False)
+        c  = "#586069" if is_obs else sev_color.get(sev, "#00E5A0")
+        bg = "#1C2530" if is_obs else sev_bg.get(sev, "#07251C")
         title, body, action = get_insight_text(ins, lang)
         cf = (ins.get("metric_snapshot") or {}).get("counterfactual")
         cf_html = ""
         if isinstance(cf, dict):
             cf_html = (
-                f'<table class="cf"><tr><th></th><th>{safe(tx["cf_current"])}</th><th>{safe(tx["cf_without"])}</th></tr>'
+                f'<table class="cf"><tr><th></th><th>{safe(tx["cf_current"])}</th><th>{safe(tx.get("cf_without_obs", tx["cf_without"]) if ins.get("observation") else tx["cf_without"])}</th></tr>'
                 f'<tr><td>PF</td><td>{safe(cf.get("current_pf", "—"))}</td>'
                 f'<td>{safe(cf.get("pf_without_segment", "—"))}</td></tr>'
                 f'<tr><td>NET PNL</td><td>{safe(cf.get("current_net_pnl", "—"))}$</td>'
@@ -959,7 +967,7 @@ def build_report_html(result: dict, tx: dict, lang: str, trader_id: str, source:
             f'{safe(tx["insight_meta_conf"])}:{safe(ins.get("confidence", ""))} · '
             f'n={safe(ins.get("sample_size", ""))}</span>'
             f'<div class="cb">{safe(body)}</div>{cf_html}'
-            + (f'<div class="act">{safe(action)}</div>' if action else "")
+            + (f'<div class="{"act-obs" if is_obs else "act"}">{safe(action)}</div>' if action else "")
             + '</div>')
         if action:
             act_html += (f'<div class="card"><span class="mono" style="color:#00E5A0">{idx:02d}</span>'
@@ -992,6 +1000,7 @@ def build_report_html(result: dict, tx: dict, lang: str, trader_id: str, source:
 <h2>{safe(tx["health_summary"])}</h2>
 {_score_html}
 {_recover_html}
+{_equity_html}
 <div class="grid">{cards}</div>
 {warn_html}
 <h2>{safe(tx["insights_header"])} — {len(insights)}</h2>
@@ -1000,7 +1009,7 @@ def build_report_html(result: dict, tx: dict, lang: str, trader_id: str, source:
 {act_html}
 {_journey_html}
 {_cta_html}
-<div class="footer">{safe(tx["disclaimer"])}<br>BAZAR·AUDIT — v2.2</div>
+<div class="footer">{safe(tx["disclaimer"])}<br>BAZAR·AUDIT — v2.4</div>
 </body></html>"""
 
 
@@ -1043,6 +1052,78 @@ def save_assignments(data: dict) -> None:
             json.dump(data, f, indent=2)
     except Exception:
         pass
+
+
+def _send_access_code_email(email: str, code: str, lang: str = "en") -> bool:
+    """v2.4: کد را به ایمیل می‌فرستد — True اگر موفق، False اگر شکست. از smtplib با credentials در secrets."""
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+
+        smtp_host = st.secrets.get("SMTP_HOST", "")
+        smtp_port = int(st.secrets.get("SMTP_PORT", 587))
+        smtp_user = st.secrets.get("SMTP_USER", "")
+        smtp_pass = st.secrets.get("SMTP_PASS", "")
+        from_addr = st.secrets.get("SMTP_FROM", smtp_user)
+
+        if not smtp_host or not smtp_user or not smtp_pass:
+            return False  # secrets تنظیم نشده
+
+        subjects = {
+            "en": "Your Bazar Audit Access Code",
+            "fa": "کد دسترسی Bazar Audit شما",
+            "ar": "رمز وصولك إلى Bazar Audit",
+        }
+        bodies = {
+            "en": f"""Hi,
+
+Your private beta access request has been approved.
+
+Use the code below to unlock Bazar Audit and analyze what really drives your trading performance.
+
+Access code:
+{code}
+
+This code is linked to your email and can be used once.
+
+Bazar does not provide buy/sell signals or financial advice.
+It analyzes trading behavior, risk patterns, and strategy structure.
+
+The Bazar Audit Team""",
+            "fa": f"""سلام،
+
+درخواست دسترسی بتای شما تأیید شد.
+کد زیر را برای ورود به Bazar Audit وارد کنید:
+
+{code}
+
+این کد فقط یک‌بار قابل استفاده است.
+تیم Bazar Audit""",
+            "ar": f"""مرحباً،
+
+تمت الموافقة على طلب وصولك. استخدم الرمز أدناه للدخول:
+
+{code}
+
+هذا الرمز للاستخدام مرة واحدة فقط.
+فريق Bazar Audit""",
+        }
+
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subjects.get(lang, subjects["en"])
+        msg["From"]    = from_addr
+        msg["To"]      = email
+        msg.attach(MIMEText(bodies.get(lang, bodies["en"]), "plain", "utf-8"))
+
+        with smtplib.SMTP(smtp_host, smtp_port) as srv:
+            srv.ehlo()
+            srv.starttls()
+            srv.login(smtp_user, smtp_pass)
+            srv.sendmail(from_addr, [email], msg.as_string())
+        return True
+    except Exception:
+        return False
 
 
 def assign_code_for_email(email: str):
@@ -1471,12 +1552,18 @@ if not st.session_state.get("access_granted", False):
                 if status == "full":
                     st.error(tx["req_full"])
                 elif status == "exists":
-                    # v1.2: به ایمیل تکراری کد لو نمی‌رود — هر کس ایمیل تو را بداند نباید کدت را بگیرد.
+                    # v1.2: به ایمیل تکراری کد لو نمی‌رود
                     st.warning(tx["req_exists"])
                 else:
-                    st.success(tx["req_code_msg"])
-                    st.code(assigned)
-                    st.info(tx["req_use_hint"])
+                    # v2.4: کد روی صفحه نشان داده نمی‌شود — فقط ایمیل فرستاده می‌شود
+                    _sent = _send_access_code_email(req_email, assigned, lang)
+                    if _sent:
+                        st.success(tx.get("req_code_sent", "Access code sent to your email."))
+                        st.info(tx["req_use_hint"])
+                    else:
+                        st.success(tx["req_code_msg"])
+                        st.code(assigned)
+                        st.info(tx["req_use_hint"])
 
         # ── گام ۲: ورود با کد ──────────────────────────────────────────────────
         bz_section("02", "key", tx["access_title"])
@@ -1731,6 +1818,14 @@ with tab_report:
 
     # ── v1.3: گزارش کامل تک‌کلیکی برای کاربر نهایی (HTML خودکفا) ───────────────
     try:
+        # attach raw series for equity curve (v2.3)
+        try:
+            _audit_df = st.session_state.get("uploaded_df") or beta_df
+            if _audit_df is not None:
+                result["pnl_series"] = _audit_df["pnl"].tolist()
+                result["trade_meta"] = _audit_df[["session", "symbol"]].to_dict(orient="records")
+        except Exception:
+            pass
         _full_report = build_report_html(result, tx, lang, trader_id, source)
         _dl1, _dl2 = st.columns([1, 2])
         with _dl1:
@@ -1769,13 +1864,18 @@ with tab_report:
     exp_r = metrics.get("expectancy_R")
     exp_d = metrics.get("expectancy_dollar", 0)
 
-    c1, c2, c3, c4, c5, c6 = st.columns(6)
+    _st_ins = result.get("insights", [])
+    _high_n_ui = sum(1 for i in _st_ins if i.get("severity") == "HIGH")
+    _med_n_ui  = sum(1 for i in _st_ins if i.get("severity") == "MEDIUM")
+    _obs_n_ui  = sum(1 for i in _st_ins if i.get("observation", False))
+    c1, c2, c3, c4, c5, c6, c7 = st.columns(7)
     c1.metric(tx["trades"],       f"{report.total_trades}")
-    c2.metric(tx["high_issues"],  f"{high_n}")
-    c3.metric(tx["med_issues"],   f"{medium_n}")
-    c4.metric(tx["win_rate"],     f"{wr*100:.1f}%" if wr else "N/A")
-    c5.metric(tx["profit_factor"],f"{pf:.2f}" if pf else "N/A")
-    c6.metric(tx["expectancy"],   f"{exp_r:.2f}R" if exp_r is not None else f"{exp_d:.1f}$")
+    c2.metric(tx["high_issues"],  f"{_high_n_ui}")
+    c3.metric(tx["med_issues"],   f"{_med_n_ui}")
+    c4.metric(tx.get("lbl_obs_count", "Observations"), f"{_obs_n_ui}")
+    c5.metric(tx["win_rate"],     f"{wr*100:.1f}%" if wr else "N/A")
+    c6.metric(tx["profit_factor"],f"{pf:.2f}" if pf else "N/A")
+    c7.metric(tx["expectancy"],   f"{exp_r:.2f}R" if exp_r is not None else f"{exp_d:.1f}$")
 
     if result.get("warnings"):
         for w in result["warnings"]:

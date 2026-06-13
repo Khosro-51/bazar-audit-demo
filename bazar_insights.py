@@ -171,7 +171,7 @@ def insight_systemic(df: pd.DataFrame, metrics: dict):
                                  "gap_to_breakeven_pct": round(gap * 100, 1),
                                  "observation": True},
                 message="Your strategy is marginally below breakeven in this sample; the gap is within noise range. Verify edge after costs and keep logging.",
-                recommended_action="Track costs (spread/commission) and collect more trades before structural changes.",
+                recommended_action="Research action (next 30 trades): Log exact spread and commission per trade. Calculate net PnL after costs. Re-check edge after 30 more trades before any structural strategy change.",
                 title_fa="مشاهده: کمی زیر سطح سر‌به‌سر",
                 body_fa=(f"استراتژی شما در این نمونه کمی زیر سر‌به‌سر است "
                          f"(WR {round(wr*100,1)}٪، حد لازم {round(bwr*100,1)}٪، PF {pf})، "
@@ -304,7 +304,7 @@ def insight_session_toxicity(df: pd.DataFrame, metrics: dict):
         metric_snapshot=snapshot,
         message=(f"Session '{worst['session']}' looks weak in this data, but evidence is "
                  f"not yet sufficient for a firm conclusion (p={p_val:.2f}). Log more trades."),
-        recommended_action="No firm action yet — keep logging trades in this session; judgment power roughly triples around 300 trades.",
+        recommended_action="Research action (next 30 trades): Tag this session separately on each trade. Do not increase size or risk. Re-check significance after 30 more trades — evidence triples around 300 total.",
         title_fa=f"مشاهده: سشن {worst['session']} ضعیف دیده می‌شود",
         body_fa=(
             f"در داده فعلی، سشن {worst['session']} ({worst['trades']} معامله، "
@@ -360,7 +360,7 @@ def insight_trade_count_cliff(df: pd.DataFrame, metrics: dict):
                              "p_value": round(p_val,4), "observation": True},
             message=(f"Win rate appears to drop after trade #{cliff} each day, but evidence is "
                      f"not yet sufficient (p={p_val:.2f}). Log more trades."),
-            recommended_action="No firm action yet — keep logging; re-check after more trading days.",
+            recommended_action="Research action (next 30 days): Log trade sequence number (1st, 2nd, 3rd…) per session in your journal. No structural change yet. Re-check after 30 more trading days.",
             title_fa=f"مشاهده: افت بعد از معامله {cliff}ام دیده می‌شود",
             body_fa=(f"در داده فعلی بعد از معامله {cliff}ام روز افت Win Rate دیده شده "
                      f"({drop} امتیاز)، اما شواهد برای حکم قطعی کافی نیست (p={p_val:.2f})."),
@@ -682,7 +682,7 @@ def insight_symbol_edge(df: pd.DataFrame, metrics: dict):
         metric_snapshot=snapshot,
         message=(f"{worst['symbol']} looks weak in this data, but evidence is not yet "
                  f"sufficient for a firm conclusion (p={p_val:.2f}). Log more trades."),
-        recommended_action="No firm action yet — keep logging trades on this symbol before deciding.",
+        recommended_action="Research action (next 30 trades): Keep trading this symbol but tag it in your log. Record setup type per trade. Do not increase size. Re-check p-value after 30 more trades.",
         title_fa=f"مشاهده: {worst['symbol']} ضعیف دیده می‌شود",
         body_fa=(
             f"در داده فعلی، {worst['symbol']} ({worst['trades']} معامله، "
