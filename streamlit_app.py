@@ -859,6 +859,10 @@ def get_insight_text(ins: dict, lang: str) -> tuple:
 
 
 # ── گزارش HTML تک‌کلیکی برای کاربر نهایی (v1.3) ──────────────────────────────
+from bazar_report_extras import (
+    bazar_score_html, recoverable_card_html,
+    journey_bar_html, cta_block_html, EXTRAS_CSS
+)
 _REPORT_CSS = """ {EXTRAS_CSS} """.replace("{EXTRAS_CSS}", EXTRAS_CSS) + """
 body{background:#07090C;color:#C9D4DF;font-family:'Vazirmatn','Inter',sans-serif;
      margin:0;padding:40px 6%;line-height:1.7}
@@ -1175,11 +1179,6 @@ try:
 except Exception as e:
     audit_from_df = None
     ENGINE_ERROR  = e
-
-from bazar_report_extras import (
-    bazar_score_html, recoverable_card_html,
-    journey_bar_html, cta_block_html, EXTRAS_CSS
-)
 
 # ── Page Config ───────────────────────────────────────────────────────────────
 st.set_page_config(
