@@ -7,6 +7,7 @@ venv/
 secret
 Bazar_tips-L4-L5-L6-L7
 .DS_Store
+.claude/
 _archive/
 .pytest_cache/
 .tools/
