@@ -77,11 +77,25 @@ def audit_from_df(df: pd.DataFrame, trader_id: str = 'trader') -> AuditReport:
     for col in ('open_time', 'close_time'):
         if not pd.api.types.is_datetime64_any_dtype(df[col]):
             df[col] = pd.to_datetime(df[col], errors='coerce')
-    df = df.sort_values('open_time').reset_index(drop=True)
+
+    # RA-4: drop rows whose timestamps failed to parse (NaT). Left in, they corrupt
+    # sequencing (post-loss/close-time ordering), the per-day trade index (cliff),
+    # and the 3D map — and pandas sorts NaT to the end rather than excluding them.
+    # Remove them once, up front, and surface how many were dropped.
+    _bad_ts = df['open_time'].isna() | df['close_time'].isna()
+    n_bad_ts = int(_bad_ts.sum())
+    if n_bad_ts:
+        df = df[~_bad_ts]
+    # RA-7 / D3: stable sort so tied open_times get a deterministic order (and hence
+    # a deterministic derived trade_index_in_day) across pandas versions.
+    df = df.sort_values('open_time', kind='stable').reset_index(drop=True)
 
     mode = r_mode(df)
     report = AuditReport(trader_id=trader_id, total_trades=len(df),
                          sample_size_ok=True, r_mode=mode)
+    if n_bad_ts:
+        report.warnings.append(
+            f"{n_bad_ts} trade(s) had unparseable open/close timestamps and were excluded from the analysis.")
 
     # ── Data Quality ────────────────────────────────────────────────
     ok, size_ins = insight_sample_size(df)
@@ -119,7 +133,7 @@ def load(path: str) -> pd.DataFrame:
     """(backward-compatible) بارگذاری و اعتبارسنجی CSV."""
     df = pd.read_csv(path, parse_dates=['open_time', 'close_time'])
     validate_columns(df)
-    return df.sort_values('open_time').reset_index(drop=True)
+    return df.sort_values('open_time', kind='stable').reset_index(drop=True)
 
 
 def print_report(report: AuditReport):

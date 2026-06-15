@@ -10,6 +10,7 @@ v2.0:
 import pandas as pd
 import numpy as np
 from bazar_schema import Insight, Severity, Confidence
+from bazar_metrics import _r_series
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -33,6 +34,17 @@ def _seg_conf(n: int) -> Confidence:
 # ── Phase 2 (v2.0): آزمون‌های آماری — finding فقط با شواهد، وگرنه observation ──
 ALPHA_FINDING = 0.015   # سطح معناداری هر آزمون؛ اجتماع FP چند آزمون < 10٪ می‌ماند
 N_PERM = 300
+
+# ── Tunable thresholds (centralized — audit B3 / cross-cutting rec #4) ──────────
+# Severity cutoffs live here, not scattered as magic numbers inside the insights.
+SESSION_TOXIC_HIGH_R   = -0.50   # worst-session avg PnL (in R) → HIGH; scale-invariant
+                                 # (≈ the legacy -$60 at 1R≈$120; chosen to keep the
+                                 #  HIGH bar as strict as before, just size-independent)
+SESSION_TOXIC_HIGH_USD = -60.0   # dollar fallback when R is unavailable (not scale-invariant)
+DD_THRESHOLD_PCT       = 3.0     # equity drawdown depth (%) that counts as "in drawdown"
+DD_OVERSIZE_RATIO_MIN  = 1.2     # dd/normal position-size ratio to report at all
+DD_OVERSIZE_RATIO_HIGH = 1.5     # ratio at/above which the finding is HIGH
+POST_LOSS_FAST_GAP_MIN = 60      # "fast re-entry" window after a loss, in minutes
 
 
 def _data_seed(df: pd.DataFrame, salt: int = 0) -> int:
@@ -102,11 +114,147 @@ def _perm_p_cliff(win_flags, day_index, n_perm: int = N_PERM,
     return (cnt + 1) / (n_perm + 1), s_obs
 
 
+def _perm_p_dd_oversize(normal_lots, dd_lots, n_perm: int = N_PERM, seed: int = 0):
+    """Permutation p-value for "position size is larger in drawdown" (audit RA-1).
+
+    Null: lot size is unrelated to drawdown state. The dd count is held fixed and
+    the drawdown/normal labels are shuffled across the pooled lot sizes; we recompute
+    mean(dd)/mean(rest) each time. p = P(shuffled ratio >= observed ratio). This puts
+    DRAWDOWN_RECOVERY_SIZING on the same evidence footing as the session/symbol/cliff
+    findings instead of a bare ratio threshold."""
+    rng = np.random.default_rng(seed)
+    normal = np.asarray(normal_lots, dtype=float)
+    dd     = np.asarray(dd_lots, dtype=float)
+    allv = np.concatenate([normal, dd])
+    n_dd = len(dd)
+
+    def ratio(d, r):
+        mr = r.mean()
+        return (d.mean() / mr) if mr > 0 else 0.0
+
+    obs = ratio(dd, normal)
+    idx = np.arange(len(allv))
+    cnt = 0
+    for _ in range(n_perm):
+        rng.shuffle(idx)
+        if ratio(allv[idx[:n_dd]], allv[idx[n_dd:]]) >= obs:
+            cnt += 1
+    return (cnt + 1) / (n_perm + 1)
+
+
 def _binom_p_le(k: int, n: int, p0: float) -> float:
     """P(X <= k) برای X~Binom(n, p0) — دقیق، بدون scipy."""
     from math import comb
     p0 = min(max(p0, 1e-9), 1 - 1e-9)
     return sum(comb(n, i) * (p0 ** i) * ((1 - p0) ** (n - i)) for i in range(0, k + 1))
+
+
+def _significance_series(df: pd.DataFrame, mode: str):
+    """Series for the one-sample edge z-test, chosen by DATA, not schema (audit A4/B2).
+
+    Uses the R series of the engine's mode (full OR computed) when it carries enough
+    real points, else falls back to dollar pnl. This makes full-mode and
+    computed-mode traders judged by the SAME rule (B2), and prevents an all-NaN or
+    near-empty pnl_R column from bypassing the guard (A4)."""
+    r = _r_series(df, mode)
+    if r is not None:
+        r = r.dropna()
+        if len(r) > 10:
+            return r
+    return df['pnl'].dropna()
+
+
+def _post_loss_indices(opens, closes, pnls, fast_gap_min: int = POST_LOSS_FAST_GAP_MIN):
+    """Post-loss trade indices (audit A7).
+
+    A trade i is "post-loss" if the most-recently-COMPLETED prior trade — the one
+    with the latest close_time at/before trade i's open_time — was a loss. This is
+    found by close_time, not by open_time order, so it is correct under overlapping
+    positions, and the returned gap is always >= 0. Returns (post_loss_idx,
+    fast_idx) as positional indices into the open_time-ordered arrays."""
+    closes = np.asarray(closes)
+    opens  = np.asarray(opens)
+    pnls   = np.asarray(pnls, dtype=float)
+    close_order   = np.argsort(closes, kind='stable')
+    closes_sorted = closes[close_order]
+    post, fast = [], []
+    for i in range(len(opens)):
+        oi = opens[i]
+        k = int(np.searchsorted(closes_sorted, oi, side='right'))  # # closed at/before oi
+        prev = None
+        for j in range(k - 1, -1, -1):
+            cand = int(close_order[j])
+            if cand != i:
+                prev = cand
+                break
+        if prev is None:
+            continue
+        if pnls[prev] < 0:
+            post.append(i)
+            gap = (oi - closes[prev]) / np.timedelta64(1, 'm')  # minutes, >= 0 by construction
+            if gap <= fast_gap_min:
+                fast.append(i)
+    return post, fast
+
+
+def _drawdown_buckets(balance, lots, threshold_pct: float = DD_THRESHOLD_PCT):
+    """Split position sizes into normal vs in-drawdown buckets (audit E3).
+
+    Uses a running high-water mark from the first row and classifies EVERY trade
+    into exactly one bucket by its decision-time drawdown depth — no trade is
+    silently dropped (the old in_dd state machine dropped the first recovery trade).
+    Returns (normal_sizes, dd_sizes)."""
+    balance = np.asarray(balance, dtype=float)
+    lots    = np.asarray(lots, dtype=float)
+    # RA-4: drop rows with NaN balance or lot so a single bad/missing value can't
+    # poison the running peak (Python max propagates NaN) or the size means.
+    valid = ~(np.isnan(balance) | np.isnan(lots))
+    balance = balance[valid]
+    lots    = lots[valid]
+    normal_s, dd_s = [], []
+    peak = balance[0] if len(balance) else 0.0
+    for i in range(len(balance)):
+        b = balance[i]
+        peak = max(peak, b)
+        dd_pct = (peak - b) / peak * 100 if peak > 0 else 0.0
+        (dd_s if dd_pct > threshold_pct else normal_s).append(lots[i])
+    return normal_s, dd_s
+
+
+def _decided_counts(pnl):
+    """(wins, decided) where decided = wins + losses (scratches pnl==0 excluded).
+    Single engine-wide win-rate basis (audit RA-2) — matches compute_core_metrics."""
+    arr = np.asarray(pnl, dtype=float)
+    wins = int((arr > 0).sum())
+    return wins, wins + int((arr < 0).sum())
+
+
+def _decided_win_rate(pnl) -> float:
+    """Win rate over DECIDED trades: wins / (wins + losses), 0.0 if none (RA-2)."""
+    wins, dec = _decided_counts(pnl)
+    return (wins / dec) if dec > 0 else 0.0
+
+
+def _two_prop_p_less(w1: int, n1: int, w2: int, n2: int) -> float:
+    """One-sided p-value for H1: p1 < p2 via a two-proportion z-test (no scipy).
+
+    A2 fix: the post-loss reference rate is *estimated* from the non-post-loss
+    complement, not known a priori. A one-sample binomial against that estimate
+    as if it were exact understates the variance and inflates significance. The
+    two-proportion test accounts for sampling error in both groups, which keeps
+    the false-finding rate at its nominal level on noise.
+    """
+    from math import erf, sqrt
+    if n1 == 0 or n2 == 0:
+        return 1.0
+    p1 = w1 / n1
+    p2 = w2 / n2
+    p  = (w1 + w2) / (n1 + n2)
+    se = (p * (1 - p) * (1 / n1 + 1 / n2)) ** 0.5
+    if se == 0:
+        return 1.0
+    z = (p1 - p2) / se
+    return 0.5 * (1 + erf(z / sqrt(2)))   # Phi(z): small when p1 is well below p2
 
 
 # ── 0. SAMPLE SIZE GUARD ─────────────────────────────────────────────────────
@@ -156,12 +304,15 @@ def insight_systemic(df: pd.DataFrame, metrics: dict):
         if not soft:
             return None
         # Phase 2 (v2.0): آیا منفی‌بودن expectancy از نویز جدا می‌شود؟ (z-test ساده)
+        # B2 fix: judge the edge from the R series of the engine's mode (full OR
+        # computed) via _significance_series, not the raw pnl_R column — so a
+        # computed-mode trader can also reach the significant MEDIUM verdict, not
+        # only the LOW observation. Same rule for full and computed.
         _sig_edge = False
-        if exp_R is not None and 'pnl_R' in df.columns:
-            _r = df['pnl_R'].dropna()
-            if len(_r) > 10 and _r.std(ddof=1) > 0:
-                _se = _r.std(ddof=1) / (len(_r) ** 0.5)
-                _sig_edge = (exp_R / _se) < -2.0
+        _edge_series = _significance_series(df, metrics["r_mode"])
+        if len(_edge_series) > 10 and _edge_series.std(ddof=1) > 0:
+            _se = _edge_series.std(ddof=1) / (len(_edge_series) ** 0.5)
+            _sig_edge = (float(_edge_series.mean()) / _se) < -2.0
         if not _sig_edge:
             return Insight(
                 insight_id="EDGE_BELOW_BREAKEVEN",
@@ -197,17 +348,14 @@ def insight_systemic(df: pd.DataFrame, metrics: dict):
         )
 
     # Phase 2 (v2.0): HIGH فقط با شواهد — expectancy باید معنادار زیر صفر باشد
+    # A4 fix (now via the shared _significance_series helper): gate on DATA, not the
+    # presence of a pnl_R column. An all-NaN/near-empty pnl_R column no longer slips
+    # past the guard, and computed-mode uses its R series like full mode (B2).
     _sig_sys = True
-    if 'pnl_R' in df.columns:
-        _r = df['pnl_R'].dropna()
-        if len(_r) > 10 and _r.std(ddof=1) > 0:
-            _se = _r.std(ddof=1) / (len(_r) ** 0.5)
-            _sig_sys = (float(_r.mean()) / _se) < -2.0
-    else:
-        _p = df['pnl'].dropna()
-        if len(_p) > 10 and _p.std(ddof=1) > 0:
-            _se = _p.std(ddof=1) / (len(_p) ** 0.5)
-            _sig_sys = (float(_p.mean()) / _se) < -2.0
+    _sig_series = _significance_series(df, metrics["r_mode"])
+    if len(_sig_series) > 10 and _sig_series.std(ddof=1) > 0:
+        _se = _sig_series.std(ddof=1) / (len(_sig_series) ** 0.5)
+        _sig_sys = (float(_sig_series.mean()) / _se) < -2.0
     if not _sig_sys:
         return None  # gap بزرگ ولی در محدوده نویز — سکوت بهتر از حکم کاذب
 
@@ -246,7 +394,7 @@ def insight_session_toxicity(df: pd.DataFrame, metrics: dict):
     for ses, grp in df.groupby('session'):
         if len(grp) < 5:
             continue
-        wr      = (grp['pnl'] > 0).mean()
+        wr      = _decided_win_rate(grp['pnl'])   # RA-2: decided basis
         avg_pnl = grp['pnl'].mean()
         results.append({"session": ses, "trades": len(grp),
                          "win_rate": round(wr, 4), "avg_pnl": round(avg_pnl, 2)})
@@ -277,7 +425,16 @@ def insight_session_toxicity(df: pd.DataFrame, metrics: dict):
                 "p_value": round(p_val, 4), "observation": not significant}
 
     if significant:
-        sev  = _sev("HIGH") if worst["avg_pnl"] < -60 else _sev("MEDIUM")
+        # B3 fix: prefer a scale-invariant R cutoff for HIGH (the worst session's
+        # average loss in R) so the verdict doesn't depend on account/lot size;
+        # fall back to the dollar cutoff only when R is unavailable.
+        _rser = _r_series(df, metrics.get("r_mode", "pnl_only"))
+        if _rser is not None:
+            _seg_r = _rser[(df['session'] == worst['session']).to_numpy()].dropna()
+            _is_high = len(_seg_r) > 0 and float(_seg_r.mean()) < SESSION_TOXIC_HIGH_R
+        else:
+            _is_high = worst["avg_pnl"] < SESSION_TOXIC_HIGH_USD
+        sev  = _sev("HIGH") if _is_high else _sev("MEDIUM")
         conf = _seg_conf(worst["trades"])
         body_fa = (
             f"در سشن {worst['session']} با {worst['trades']} معامله، "
@@ -318,38 +475,72 @@ def insight_session_toxicity(df: pd.DataFrame, metrics: dict):
 
 def insight_trade_count_cliff(df: pd.DataFrame, metrics: dict):
     col = 'trade_index_in_day'
-    if col not in df.columns:
-        df = df.copy()
-        df['_date'] = df['open_time'].dt.date
-        df[col] = df.groupby('_date').cumcount() + 1
+    # D3 fix: ALWAYS derive the per-day trade index from open_time, deterministically,
+    # instead of trusting a supplied column. Two uploads that differ only by the
+    # presence (or upstream computation) of trade_index_in_day must produce the same
+    # cliff result (live == backtest). Day boundary = the calendar date of open_time
+    # in whatever timezone the data carries. (Limitation: a broker/session rollover
+    # boundary is not modeled — see audit D3 note.)
+    df = df.copy()
+    df['_date'] = df['open_time'].dt.date
+    _derived = df.groupby('_date').cumcount() + 1
+    _supplied = df[col] if col in df.columns else None
+    _overrode = False
+    if _supplied is not None:
+        try:
+            _overrode = not np.array_equal(
+                pd.to_numeric(_supplied, errors='coerce').to_numpy(), _derived.to_numpy())
+        except Exception:
+            _overrode = True
+    df[col] = _derived
 
     results = []
     for idx in sorted(df[col].unique()):
         grp = df[df[col] == idx]
-        if len(grp) < 5:
+        # RA-2: decided basis — need >=5 DECIDED trades at this position; win rate
+        # and the pooled weight `n` both exclude scratches (pnl==0).
+        n_dec = int((grp['pnl'] != 0).sum())
+        if n_dec < 5:
             continue
-        results.append({"index": int(idx), "win_rate": (grp['pnl'] > 0).mean(), "n": len(grp)})
+        results.append({"index": int(idx), "win_rate": _decided_win_rate(grp['pnl']), "n": n_dec})
 
     if len(results) < 3:
         return None
 
-    cliff = None
-    bwr = awr = 0.0
+    # A6 fix: report the split the permutation statistic actually tests — the
+    # argmax-drop split across ALL cut points (_perm_p_cliff's stat is the maximum
+    # drop), not merely the FIRST split to cross 0.15. Same unweighted per-index
+    # rates and same buckets as the test, so the reported cut point == the tested
+    # cut point. (The 0.15 trigger set is unchanged: argmax > 0.15 iff some split
+    # crosses 0.15.)
+    rates = [r["win_rate"] for r in results]
+    cliff_i = None
+    best_drop = 0.0
     for i in range(1, len(results)):
-        before = np.mean([r["win_rate"] for r in results[:i]])
-        after  = np.mean([r["win_rate"] for r in results[i:]])
-        if before - after > 0.15:
-            cliff = results[i]["index"]
-            bwr, awr = before, after
-            break
+        d = np.mean(rates[:i]) - np.mean(rates[i:])
+        if d > best_drop:
+            best_drop, cliff_i = d, i
 
-    if cliff is None:
+    if cliff_i is None or best_drop <= 0.15:
         return None
+    cliff = results[cliff_i]["index"]
 
+    # A5 fix: detect the split on the unweighted per-index series (kept consistent
+    # with the permutation statistic), but DISPLAY the real trade-weighted (pooled)
+    # win rates over the buckets before/after the split. An unweighted average of
+    # per-index win rates is not the win rate the trader would actually compute.
+    def _pooled_wr(buckets):
+        tot = sum(b["n"] for b in buckets)
+        return (sum(b["n"] * b["win_rate"] for b in buckets) / tot) if tot else 0.0
+    bwr = _pooled_wr(results[:cliff_i])
+    awr = _pooled_wr(results[cliff_i:])
     drop = round((bwr - awr) * 100, 1)
     # Phase 2 (v2.0): جایگشت روی پرچم برد/باخت — finding فقط با شواهد
-    _wins = (df['pnl'] > 0).to_numpy()
-    _idx  = df[col].to_numpy()
+    # RA-2: permute over DECIDED trades only (scratches excluded), so the test sits
+    # on the same basis as the displayed pooled win rates.
+    _dec_mask = (df['pnl'] != 0).to_numpy()
+    _wins = (df['pnl'] > 0).to_numpy()[_dec_mask].astype(float)
+    _idx  = df[col].to_numpy()[_dec_mask]
     p_val, _ = _perm_p_cliff(_wins, _idx, seed=_data_seed(df, 13))
     if p_val >= ALPHA_FINDING:
         return Insight(
@@ -357,7 +548,9 @@ def insight_trade_count_cliff(df: pd.DataFrame, metrics: dict):
             severity=_sev("LOW"), confidence=_conf("LOW"), sample_size=len(df),
             metric_snapshot={"cliff_at_trade": cliff, "before_wr": round(bwr,4),
                              "after_wr": round(awr,4), "drop_pct": drop,
-                             "p_value": round(p_val,4), "observation": True},
+                             "p_value": round(p_val,4), "observation": True,
+                             "derived_trade_index": True,
+                             "trade_index_overrode_supplied": _overrode},
             message=(f"Win rate appears to drop after trade #{cliff} each day, but evidence is "
                      f"not yet sufficient (p={p_val:.2f}). Log more trades."),
             recommended_action="Research action (next 30 days): Log trade sequence number (1st, 2nd, 3rd…) per session in your journal. No structural change yet. Re-check after 30 more trading days.",
@@ -379,7 +572,9 @@ def insight_trade_count_cliff(df: pd.DataFrame, metrics: dict):
         severity=_sev("HIGH") if drop >= 25 else _sev("MEDIUM"),
         confidence=conf, sample_size=len(df),
         metric_snapshot={"cliff_at_trade": cliff, "before_wr": round(bwr,4), "after_wr": round(awr,4),
-                         "drop_pct": drop, "p_value": round(p_val,4), "observation": False},
+                         "drop_pct": drop, "p_value": round(p_val,4), "observation": False,
+                         "derived_trade_index": True,
+                         "trade_index_overrode_supplied": _overrode},
         message=f"Win rate drops sharply after trade #{cliff} each day (p={p_val:.3f}).",
         recommended_action=f"Limit yourself to {cliff-1} trade(s) per day until more data proves trade #{cliff} is profitable.",
         title_fa=f"بعد از معامله {cliff}ام کیفیت افت می‌کند",
@@ -396,33 +591,44 @@ def insight_post_loss_decay(df: pd.DataFrame, metrics: dict):
     baseline_wr  = metrics["win_rate"]
     baseline_exp = metrics["expectancy_dollar"]
 
-    post_loss_idx, fast_idx = [], []
-    for i in range(1, len(df)):
-        if df.iloc[i-1]['pnl'] < 0:
-            post_loss_idx.append(i)
-            gap = (df.iloc[i]['open_time'] - df.iloc[i-1]['close_time']).total_seconds() / 60
-            if gap <= 60:
-                fast_idx.append(i)
+    # A7 fix (see _post_loss_indices): "previous" trade is the most-recently-CLOSED
+    # one, not the prior by open_time — overlap-safe, and gaps are always >= 0.
+    post_loss_idx, fast_idx = _post_loss_indices(
+        df['open_time'].to_numpy(), df['close_time'].to_numpy(), df['pnl'].to_numpy())
 
     if len(post_loss_idx) < 15:
         return None
 
     pl   = df.iloc[post_loss_idx]
-    pl_wr = (pl['pnl'] > 0).mean()
-    wr_drop = baseline_wr - pl_wr
+    # RA-2: decided basis (wins / wins+losses) everywhere — same basis as the global
+    # win_rate and breakeven_wr; scratch trades (pnl==0) are excluded from rates and
+    # from the two-proportion denominators.
+    pl_wins, pl_dec = _decided_counts(pl['pnl'])
+    pl_wr = (pl_wins / pl_dec) if pl_dec > 0 else 0.0
+    # A2 fix: the reference is the NON-post-loss complement, not the overall win
+    # rate. The overall rate contains the post-loss trades being tested, which
+    # pulls the baseline toward pl_wr — understating the drop and biasing the
+    # test toward non-significance (lost power).
+    _pl_set = set(post_loss_idx)
+    non_pl  = df.iloc[[i for i in range(len(df)) if i not in _pl_set]]
+    _wins_ref, _n_ref = _decided_counts(non_pl['pnl'])   # _n_ref = decided count
+    ref_wr  = (_wins_ref / _n_ref) if _n_ref > 0 else baseline_wr
+    wr_drop = ref_wr - pl_wr
 
     has_fast = len(fast_idx) >= 5
     fast_wr = fast_drop = None
+    fast_wins = fast_dec = 0
     if has_fast:
         ft = df.iloc[fast_idx]
-        fast_wr   = (ft['pnl'] > 0).mean()
-        fast_drop = baseline_wr - fast_wr
+        fast_wins, fast_dec = _decided_counts(ft['pnl'])
+        fast_wr   = (fast_wins / fast_dec) if fast_dec > 0 else 0.0
+        fast_drop = ref_wr - fast_wr   # A2 fix: vs non-post-loss complement
 
     def _fast_sig():
-        if not has_fast:
+        if not has_fast or fast_dec == 0:
             return 1.0
-        wins_fast = int((df.iloc[fast_idx]['pnl'] > 0).sum())
-        return _binom_p_le(wins_fast, len(fast_idx), baseline_wr)
+        # A2 fix: fast trades vs the (disjoint) non-post-loss complement
+        return _two_prop_p_less(fast_wins, fast_dec, _wins_ref, _n_ref)
 
     # حالت ۱: baseline خیلی پایین → مشکل systemic است، post-loss معنادار نیست
     if baseline_wr < 0.25:
@@ -474,9 +680,9 @@ def insight_post_loss_decay(df: pd.DataFrame, metrics: dict):
     if wr_drop < 0.10:
         return None
 
-    # Phase 2: گیت binomial — بردهای post-loss در برابر baseline
-    _wins_pl = int((pl['pnl'] > 0).sum())
-    if _binom_p_le(_wins_pl, len(post_loss_idx), baseline_wr) >= ALPHA_FINDING:
+    # Phase 2: گیت — بردهای post-loss در برابر مکمل non-post-loss (A2 fix: two-proportion)
+    # RA-2: decided-basis counts on both sides.
+    if _two_prop_p_less(pl_wins, pl_dec, _wins_ref, _n_ref) >= ALPHA_FINDING:
         return None  # شواهد ناکافی
 
     sev = _sev("HIGH") if wr_drop >= 0.20 else _sev("MEDIUM")
@@ -495,7 +701,7 @@ def insight_post_loss_decay(df: pd.DataFrame, metrics: dict):
 
     body_fa = (
         f"در {len(post_loss_idx)} معامله بعد از ضرر، Win Rate از "
-        f"{round(baseline_wr*100,1)}٪ به {round(pl_wr*100,1)}٪ افت می‌کند "
+        f"{round(ref_wr*100,1)}٪ به {round(pl_wr*100,1)}٪ افت می‌کند "
         f"({round(wr_drop*100,1)} امتیاز).{fast_line}"
     )
 
@@ -503,7 +709,8 @@ def insight_post_loss_decay(df: pd.DataFrame, metrics: dict):
         insight_id="POST_LOSS_DECAY",
         severity=sev, confidence=_conf("HIGH") if len(post_loss_idx) >= 30 else _conf("MEDIUM"),
         sample_size=len(post_loss_idx),
-        metric_snapshot={"baseline_wr": round(baseline_wr,4), "post_loss_wr": round(pl_wr,4),
+        metric_snapshot={"baseline_wr": round(ref_wr,4), "overall_wr": round(baseline_wr,4),
+                         "post_loss_wr": round(pl_wr,4),
                          "wr_drop_pct": round(wr_drop*100,1), "n_post_loss": len(post_loss_idx),
                          "n_fast_reentry": len(fast_idx),
                          "fast_wr": round(fast_wr*100,1) if fast_wr is not None else None,
@@ -518,46 +725,63 @@ def insight_post_loss_decay(df: pd.DataFrame, metrics: dict):
 # ── 5. DRAWDOWN RECOVERY ──────────────────────────────────────────────────────
 
 def insight_drawdown_recovery(df: pd.DataFrame, metrics: dict):
-    if 'balance_after' not in df.columns or 'lot_or_size' not in df.columns or len(df) < 20:
+    if 'balance_before' not in df.columns or 'lot_or_size' not in df.columns or len(df) < 20:
         return None
 
-    balance = df['balance_after'].values
-    peak = balance[0]
-    in_dd = False
-    normal_s, dd_s = [], []
-
-    for i, b in enumerate(balance):
-        dd_pct = (peak - b) / peak * 100 if peak > 0 else 0
-        lot    = df.iloc[i]['lot_or_size']
-        if dd_pct > 3:
-            in_dd = True; dd_s.append(lot)
-        else:
-            if not in_dd: normal_s.append(lot)
-            peak = max(peak, b); in_dd = False
+    # A1 fix: classify the drawdown state from the balance BEFORE each trade
+    # (the equity reading at the moment the size was chosen), not balance_after.
+    # Using balance_after lets a large losing trade push equity below peak and
+    # thereby classify its own outcome as "drawdown" — outcome leakage that
+    # manufactures the very oversizing-in-drawdown pattern this insight reports.
+    # E3 fix (see _drawdown_buckets): running high-water mark from the first row;
+    # every trade classified into exactly one bucket (no dropped recovery trade).
+    normal_s, dd_s = _drawdown_buckets(
+        df['balance_before'].values, df['lot_or_size'].values, DD_THRESHOLD_PCT)
 
     if len(dd_s) < 5 or len(normal_s) < 5:
         return None
 
     ratio = np.mean(dd_s) / np.mean(normal_s) if np.mean(normal_s) > 0 else 1.0
-    if ratio < 1.2:
+    if ratio < DD_OVERSIZE_RATIO_MIN:
         return None
 
-    sev = _sev("HIGH") if ratio >= 1.5 else _sev("MEDIUM")
+    # RA-1 fix: gate with a permutation test, like every other behavioral finding,
+    # instead of emitting a finding on a bare ratio threshold. Null = lot size is
+    # unrelated to drawdown state. Below significance → LOW observation, not a finding.
+    p_val = _perm_p_dd_oversize(normal_s, dd_s, seed=_data_seed(df, 23))
+    significant = p_val < ALPHA_FINDING
+    snapshot = {"size_ratio": round(ratio, 2),
+                "avg_normal_lot": round(float(np.mean(normal_s)), 3),
+                "avg_dd_lot": round(float(np.mean(dd_s)), 3),
+                "n_dd": len(dd_s), "n_normal": len(normal_s),
+                "p_value": round(p_val, 4), "observation": not significant}
+
+    if not significant:
+        return Insight(
+            insight_id="DRAWDOWN_RECOVERY_SIZING",
+            severity=_sev("LOW"), confidence=_conf("LOW"), sample_size=len(dd_s),
+            metric_snapshot=snapshot,
+            message=(f"Position size looks larger ({ratio:.1f}x) during drawdowns in this data, "
+                     f"but the difference isn't statistically clear yet (p={p_val:.2f}). Log more trades."),
+            recommended_action="Research action (next 30 trades): tag each trade's position size and account state. Don't change sizing yet — re-check after more data.",
+            title_fa="مشاهده: احتمال بزرگ‌تر شدن سایز در drawdown",
+            body_fa=(f"در داده فعلی سایز معاملات در دوره‌های drawdown حدود {ratio:.1f}x بزرگ‌تر دیده می‌شود، "
+                     f"اما اختلاف هنوز از نظر آماری قطعی نیست (p={p_val:.2f}). با داده بیشتر دوباره بررسی می‌شود."),
+        )
+
+    sev = _sev("HIGH") if ratio >= DD_OVERSIZE_RATIO_HIGH else _sev("MEDIUM")
 
     body_fa = (
-        f"در دوره‌های drawdown بیش از ۳٪، میانگین سایز معاملات شما "
-        f"{ratio:.1f}x بزرگتر از حالت عادی است. "
+        f"در دوره‌های drawdown بیش از {int(DD_THRESHOLD_PCT)}٪، میانگین سایز معاملات شما "  # RA-6: tracks DD_THRESHOLD_PCT
+        f"{ratio:.1f}x بزرگتر از حالت عادی است (p={p_val:.3f}). "
         f"این الگو معمولاً drawdown را عمیق‌تر می‌کند."
     )
 
     return Insight(
         insight_id="DRAWDOWN_RECOVERY_SIZING",
         severity=sev, confidence=_conf("MEDIUM"), sample_size=len(dd_s),
-        metric_snapshot={"size_ratio": round(ratio, 2),
-                         "avg_normal_lot": round(float(np.mean(normal_s)), 3),
-                         "avg_dd_lot": round(float(np.mean(dd_s)), 3),
-                         "observation": False},
-        message=f"Position size increases {ratio:.1f}x during drawdown periods.",
+        metric_snapshot=snapshot,
+        message=f"Position size increases {ratio:.1f}x during drawdown periods (p={p_val:.3f}).",
         recommended_action="Fix position size to a consistent risk % regardless of account state.",
         title_fa="در drawdown سایز را بزرگ می‌کنید",
         body_fa=body_fa,
@@ -629,7 +853,7 @@ def insight_symbol_edge(df: pd.DataFrame, metrics: dict):
         results.append({
             "symbol":    sym,
             "trades":    len(grp),
-            "win_rate":  round((grp['pnl'] > 0).mean(), 4),
+            "win_rate":  round(_decided_win_rate(grp['pnl']), 4),  # RA-2: decided basis
             "avg_pnl":   round(grp['pnl'].mean(), 2),
             "total_pnl": round(grp['pnl'].sum(), 2),
         })
@@ -637,7 +861,12 @@ def insight_symbol_edge(df: pd.DataFrame, metrics: dict):
     toxic = [r for r in results if r["avg_pnl"] < 0]
     if not toxic: return None
 
-    worst = min(toxic, key=lambda x: x["total_pnl"])
+    # A3 fix: the permutation test (_perm_p_worst_group) tests the worst group by
+    # MEAN pnl, so the reported symbol must also be the worst-by-mean — otherwise
+    # the displayed p-value can belong to a different symbol than the one shown
+    # (a high-volume symbol can have the worst total while a smaller one drives the
+    # p-value). This matches how SESSION_TOXICITY already selects its worst segment.
+    worst = min(toxic, key=lambda x: x["avg_pnl"])
     # Patch 3 (v1.2): counterfactual به جای درصد ناپایدار
     rest = df[df['symbol'] != worst['symbol']]
     rest_gp = rest[rest['pnl'] > 0]['pnl'].sum()

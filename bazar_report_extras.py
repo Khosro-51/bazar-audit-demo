@@ -9,56 +9,22 @@ Four elements added to the downloadable HTML report:
 from __future__ import annotations
 import math
 
+# D4 fix: use the engine's single significance constant instead of a stray 0.05.
+# A finding is only "confirmed" when the engine judged it significant
+# (observation is False ⇔ p < ALPHA_FINDING), so the threshold must match.
+try:
+    from bazar_insights import ALPHA_FINDING
+except Exception:  # keep this module importable standalone
+    ALPHA_FINDING = 0.015
+
 
 # ── 1. BAZAR SCORE ────────────────────────────────────────────────────────────
-
-def bazar_score(result: dict) -> int:
-    """
-    Composite 0-100 score from engine metrics.
-    Lower = more problems to fix (motivates improvement).
-    Formula:
-      pf_score   (40 pts): PF 0→1.5 mapped linearly, capped at 40
-      wr_score   (25 pts): WR vs breakeven WR gap (-20pp→+20pp)
-      discipline (20 pts): penalise HIGH findings, reward no HIGH
-      cliff_pen  (15 pts): deduct if TRADE_COUNT_CLIFF is HIGH/MEDIUM
-    """
-    cm = result.get("core_metrics", {})
-    insights = result.get("insights", [])
-
-    pf = cm.get("profit_factor", 0) or 0
-    wr = cm.get("win_rate", 0) or 0
-    bwr = cm.get("breakeven_wr", 0.5) or 0.5
-
-    # pf score: 0 at PF=0, 40 at PF>=1.5
-    pf_score = min(40, max(0, (pf / 1.5) * 40))
-
-    # wr score: 25 at wr == bwr+0.20, 0 at wr == bwr-0.20
-    wr_gap = wr - bwr  # -0.20 → +0.20 typical range
-    wr_score = min(25, max(0, ((wr_gap + 0.20) / 0.40) * 25))
-
-    # discipline: start 20, -7 per HIGH finding, -3 per MEDIUM finding
-    disc = 20
-    for ins in insights:
-        sev = ins.get("severity", "")
-        obs = (ins.get("metric_snapshot") or {}).get("observation", False)
-        if obs:
-            continue  # observations don't penalise
-        if sev == "HIGH":
-            disc -= 7
-        elif sev == "MEDIUM":
-            disc -= 3
-    disc = max(0, disc)
-
-    # cliff penalty: -10 if TRADE_COUNT_CLIFF is MEDIUM/HIGH
-    cliff_pen = 0
-    for ins in insights:
-        if ins.get("insight_id") == "TRADE_COUNT_CLIFF":
-            if ins.get("severity") in ("MEDIUM", "HIGH"):
-                cliff_pen = 10
-    cliff_score = 15 - cliff_pen
-
-    raw = pf_score + wr_score + disc + cliff_score
-    return max(0, min(100, round(raw)))
+# D2 fix: the single source of truth for the Bazar Score is
+# streamlit_app.compute_bazar_score(). The previous duplicate formula that lived
+# here (PF/WR/discipline/cliff) diverged from the app's documented formula
+# (Edge/Consistency/Discipline/Data) and produced a different number in the
+# downloadable report than the one the product describes. It was removed; the
+# canonical score is now computed by the caller and passed into bazar_score_html().
 
 
 def score_label(score: int, lang: str, exp_r: float = 0.0) -> str:
@@ -101,8 +67,9 @@ def score_color(score: int) -> str:
     return "#FF4757"
 
 
-def bazar_score_html(result: dict, lang: str) -> str:
-    score = bazar_score(result)
+def bazar_score_html(result: dict, lang: str, score: int) -> str:
+    # `score` is the canonical Bazar Score, computed once by the caller
+    # (streamlit_app.compute_bazar_score) and passed in — see D2 fix above.
     exp_r = (result.get("core_metrics") or {}).get("expectancy_R", 0) or 0
     # if expectancy is negative, cap color at amber regardless of score
     color = score_color(score) if exp_r >= 0 else ("#FFB020" if score >= 40 else "#FF4757")
@@ -189,7 +156,7 @@ def recoverable_card_html(insights: list, lang: str) -> str:
         "fa": "بر اساس معاملات واقعی شما — گذشته‌نگر، نه وعده.",
         "ar": "بناءً على صفقاتك الفعلية — استرجاعي، وليس وعداً.",
     }
-    # split by evidence: confirmed (p<0.05, not obs) vs watchlist
+    # split by evidence: confirmed (significant per the engine, not obs) vs watchlist
     confirmed_items = []
     watch_items = []
     for seg, delta in items:
@@ -205,7 +172,7 @@ def recoverable_card_html(insights: list, lang: str) -> str:
                 p_val  = snap2.get("p_value")
                 is_obs = bool(snap2.get("observation", True))
                 break
-        if not is_obs and p_val is not None and p_val < 0.05:
+        if not is_obs and p_val is not None and p_val < ALPHA_FINDING:
             confirmed_items.append((seg, delta))
         else:
             watch_items.append((seg, delta, p_val))
@@ -216,7 +183,7 @@ def recoverable_card_html(insights: list, lang: str) -> str:
         total_c = sum(d for _, d in confirmed_items)
         rows_c = "".join(f'<div class="bz-cf-row"><span>{s}</span><span class="bz-cf-num">+{d:,.0f}$</span></div>' for s,d in confirmed_items)
         ctitles = {"en":"Confirmed Recoverable","fa":"بازیابی تأییدشده","ar":"قابل استرداد مؤكد"}
-        cnotes  = {"en":"Statistically confirmed (p<0.05) — retrospective, not a guarantee.","fa":"تأیید آماری (p<0.05) — گذشته‌نگر، نه تضمین.","ar":"مؤكد إحصائيًا — استرجاعي وليس ضمانا."}
+        cnotes  = {"en":"Statistically confirmed — retrospective, not a guarantee.","fa":"تأیید آماری — گذشته‌نگر، نه تضمین.","ar":"مؤكد إحصائيًا — استرجاعي وليس ضمانا."}
         parts.append(f'<div class="bz-recover-block"><div class="bz-recover-title">{ctitles.get(lang,ctitles["en"])}</div><div class="bz-recover-total">+{total_c:,.0f}$</div>{rows_c}<div class="bz-recover-note">{cnotes.get(lang,cnotes["en"])}</div></div>')
     else:
         msgs = {"en":"No statistically confirmed recoverable drag yet. Keep logging trades.","fa":"هنوز هیچ زیانی تأییدشده‌ای وجود ندارد. به ثبت معاملات ادامه دهید.","ar":"لا مؤكد إحصائيًا حتى الآن."}
