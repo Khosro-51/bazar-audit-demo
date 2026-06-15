@@ -1415,8 +1415,15 @@ if not st.session_state.get("access_granted", False):
                 st.warning(tx["beta_invalid_email"])
             else:
                 # E1: durable, per-email, single-use code (hashed + expiring) via StateStore.
-                _res  = get_store().request_code(req_email, ip_hash=_ip_hash(),
-                                                 user_agent_hash=_ua_hash())
+                try:
+                    _res = get_store().request_code(req_email, ip_hash=_ip_hash(),
+                                                    user_agent_hash=_ua_hash())
+                except Exception as _e:
+                    # Surface the real backend error instead of a redacted page crash
+                    # (safe: StateStore/PostgREST errors describe schema/permission, not user data).
+                    st.error(f"State backend error (request_code): {type(_e).__name__}: {_e}")
+                    log_access("code_request_error", email=req_email, detail=str(_e)[:300])
+                    st.stop()
                 log_access("code_request", email=req_email)
                 _code = _res.get("code")
                 # E2 (Wave 0A) preserved: the code is handed only to the e-mail layer,
