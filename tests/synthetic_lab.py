@@ -158,6 +158,27 @@ def gen_low_sample():
     return _df(rows)
 
 
+# ── 10. MIXED_MULTI_LEAK_TRADER ─────────────────────────────────────────────
+def gen_mixed_multi_leak():
+    # Two INDEPENDENT confirmed leaks on orthogonal axes — a toxic SESSION (Asia)
+    # and a no-edge SYMBOL (XAUUSD) — with the rest of the book strong enough that
+    # OVERALL expectancy stays >= 0, so SYSTEMIC does NOT fire and each leak keeps
+    # its own sourced L2 rule (tests multi-finding routing + no cross-contamination).
+    # 1 trade / ~30h → no intraday cliff and no <60min post-loss fast re-entry.
+    syms = ["EURUSD", "GBPUSD", "XAUUSD"]
+    rng = np.random.default_rng(101)
+    rows = []
+    t = pd.Timestamp("2026-01-05 09:00:00")
+    for i in range(240):
+        t += pd.Timedelta(hours=30)
+        s = SESS4[i % 4]
+        sym = syms[i % 3]
+        toxic = (s == "Asia") or (sym == "XAUUSD")
+        win = rng.random() < (0.31 if toxic else 0.72)
+        rows.append(_row(i, t, 60.0 if win else -60.0, session=s, symbol=sym))
+    return _df(rows)
+
+
 GENERATORS = {
     "GOOD_TRADER_CLEAN": gen_good_clean,
     "NOISE_TRADER_RANDOM": gen_noise_random,
@@ -168,6 +189,7 @@ GENERATORS = {
     "TRADE_COUNT_CLIFF_CHRONOLOGICAL": gen_trade_count_cliff,
     "WEAK_EVIDENCE_OBSERVATION_ONLY": gen_weak_observation,
     "DATA_GAP_LOW_SAMPLE": gen_low_sample,
+    "MIXED_MULTI_LEAK_TRADER": gen_mixed_multi_leak,
 }
 
 

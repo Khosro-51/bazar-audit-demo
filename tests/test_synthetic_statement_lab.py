@@ -151,3 +151,22 @@ def test_data_gap_low_sample():
     assert any(i["insight_id"] == "SAMPLE_SIZE_INSUFFICIENT" for i in audit["insights"])
     assert pb["license"] == "data_collection_plan"
     assert all(r["op"] == "track" for r in pb["rules"])     # data-collection only
+
+
+def test_mixed_multi_leak_trader():
+    audit, pb = _run("MIXED_MULTI_LEAK_TRADER")
+    f = _findings(audit)
+    assert {"SESSION_TOXICITY", "SYMBOL_NO_EDGE"} <= f       # two independent leaks confirmed
+    assert "SYSTEMIC_UNDERPERFORMANCE" not in f              # overall edge intact → not systemic
+    rules = pb["rules"]
+    # each leak routed to its OWN sourced rule on the correct component (no cross-contamination)
+    assert any(r["target"] == "session" and r["value"] == "Asia"
+               and r["op"] in ("limit", "remove", "paper_trade")
+               and r["source"] == "SESSION_TOXICITY" for r in rules)
+    assert any(r["target"] == "symbol" and r["value"] == "XAUUSD"
+               and r["op"] in ("limit", "remove", "paper_trade")
+               and r["source"] == "SYMBOL_NO_EDGE" for r in rules)
+    # no firm remove/limit on a component that was not flagged
+    for r in rules:
+        if r["op"] in ("remove", "limit") and r["target"] in ("session", "symbol"):
+            assert r["value"] in ("Asia", "XAUUSD"), f"firm rule on unflagged {r['target']}={r['value']}"
