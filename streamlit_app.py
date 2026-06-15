@@ -30,7 +30,7 @@ if BASE_DIR not in sys.path:
 
 # ── Config ────────────────────────────────────────────────────────────────────
 DEMO_MODE = True
-APP_VERSION = "v2.4"
+APP_VERSION = "v2.5"
 
 # Access code: اول st.secrets، بعد env، بعد مقدار پیش‌فرض.
 # برای production مقدار را در Streamlit Cloud → App settings → Secrets بگذار:
@@ -943,7 +943,7 @@ def build_report_html(result: dict, tx: dict, lang: str, trader_id: str, source:
 {act_html}
 {_journey_html}
 {_cta_html}
-<div class="footer">{safe(tx["disclaimer"])}<br>BAZAR·AUDIT — v2.4</div>
+<div class="footer">{safe(tx["disclaimer"])}<br>BAZAR·AUDIT — {APP_VERSION}</div>
 </body></html>"""
 
 
@@ -1465,7 +1465,7 @@ if not st.session_state.get("access_granted", False):
         st.markdown(
             '<div class="bz-status">'
             '<span><span class="bz-dot">●</span> SYSTEM ONLINE</span>'
-            '<span>ENGINE v2.4</span>'
+            f'<span>ENGINE {APP_VERSION}</span>'
             '<span>3 SAMPLE PROFILES</span>'
             '<span>10 BETA SLOTS</span>'
             '</div>', unsafe_allow_html=True)
