@@ -41,13 +41,9 @@ APP_VERSION = "v2.4"
 #   ACCESS_CODE  = "..."
 #   INVITE_CODES = "CODE1,CODE2,..."
 DEFAULT_ACCESS_CODE = ""      # خالی = بدون secrets هیچ ورود مدیری ممکن نیست
-DEFAULT_INVITE_CODES = []     # خالی = بدون secrets هیچ توکنی معتبر نیست
-MAX_UPLOADS_PER_CODE = 3
-TOKEN_TTL_HOURS = 24  # v1.4: توکن یکبارمصرف — از اولین فعال‌سازی فقط ۲۴ ساعت معتبر است
-
-BETA_USAGE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "beta_usage.json")
-ASSIGN_FILE     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "code_assignments.json")
-ACCESS_LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "access_log.json")
+# RA-3 (Wave 0H): removed the pre-E1 invite-pool / JSON-quota constants
+# (DEFAULT_INVITE_CODES, MAX_UPLOADS_PER_CODE, TOKEN_TTL_HOURS, BETA_USAGE_FILE,
+# ASSIGN_FILE, ACCESS_LOG_FILE) — all entitlement state now lives in the StateStore.
 MAX_UPLOAD_MB   = 5
 
 # ── صحنه سه‌بعدی صفحه ورود (Three.js) ────────────────────────────────────────
@@ -258,6 +254,7 @@ T = {
         "access_label":     "Enter access code",
         "access_btn":       "Unlock",
         "access_wrong":     "Invalid access code.",
+        "access_need_email": "Enter the email you requested the code with (Step 1) before unlocking.",
         "beta_header":      "Private Upload Beta",
         "beta_privacy":     "You can upload one CSV file and receive one free Bazar Audit report. Bazar does not store your trading file in this demo. Do not upload sensitive live account data.",
         "beta_email_label": "Your email",
@@ -273,6 +270,7 @@ T = {
         "req_code_msg":      "Your personal access code (save it for future logins):",
         "req_use_hint":      "Now enter this code in the field below and press Unlock.",
         "req_full":          "Beta capacity is full. Paid access is coming soon — leave your email and we will reach out.",
+        "req_send_failed":   "We couldn't send your access code right now. Please contact support and we'll get you in.",
         "viz3d_header":      "3D Trade Map",
         "viz3d_caption":     "Every trade in 3D space: hour of day × trading day × result. Drag to rotate, scroll to zoom — clusters of red show exactly where your account bleeds.",
         "src_upload_banner": "REPORT SOURCE: YOUR FILE — {name} · {n} trades",
@@ -368,6 +366,7 @@ T = {
         "access_label":     "کد دسترسی را وارد کن",
         "access_btn":       "باز کردن",
         "access_wrong":     "کد دسترسی نادرست است.",
+        "access_need_email": "قبل از باز کردن، همان ایمیلی که با آن کد خواستی را در گام ۱ وارد کن.",
         "beta_header":      "آپلود خصوصی (بتا)",
         "beta_privacy":     "شما می‌توانید یک فایل CSV آپلود کنید و یک گزارش رایگان Bazar Audit دریافت کنید. Bazar در این نسخه نمایشی فایل معاملاتی شما را ذخیره نمی‌کند. از آپلود اطلاعات حساس حساب واقعی خودداری کنید.",
         "beta_email_label": "ایمیل شما",
@@ -382,6 +381,7 @@ T = {
         "req_code_msg":      "کد دسترسی شخصی شما (برای ورودهای بعدی نگه‌اش دار):",
         "req_use_hint":      "حالا همین کد را در کادر پایین وارد کن و Unlock را بزن.",
         "req_full":          "ظرفیت بتای رایگان تکمیل شده است. دسترسی پولی به‌زودی فعال می‌شود — ایمیلت ثبت شد و با تو تماس می‌گیریم.",
+        "req_send_failed":   "ارسال کد در حال حاضر ممکن نشد. لطفاً با پشتیبانی تماس بگیر تا دسترسی‌ات را فعال کنیم.",
         "viz3d_header":      "نقشه سه‌بعدی معاملات",
         "viz3d_caption":     "هر معامله در فضای سه‌بعدی: ساعت روز × روز معاملاتی × نتیجه. بچرخان و زوم کن — خوشه‌های قرمز دقیقاً جایی است که حسابت خونریزی می‌کند.",
         "src_upload_banner": "منبع گزارش: فایل شما — {name} · {n} معامله",
@@ -475,6 +475,7 @@ T = {
         "access_label":     "أدخل رمز الوصول",
         "access_btn":       "فتح",
         "access_wrong":     "رمز الوصول غير صحيح.",
+        "access_need_email": "أدخل البريد الذي طلبت به الرمز (الخطوة 1) قبل الفتح.",
         "beta_header":      "رفع خاص (تجريبي)",
         "beta_privacy":     "يمكنك رفع ملف CSV واحد والحصول على تقرير Bazar Audit مجاني واحد. لا يقوم Bazar بتخزين ملف التداول الخاص بك في هذه النسخة التجريبية. يرجى عدم رفع بيانات حساسة لحساب تداول حقيقي.",
         "beta_email_label": "بريدك الإلكتروني",
@@ -489,6 +490,7 @@ T = {
         "req_code_msg":      "رمز الوصول الخاص بك (احتفظ به للدخول لاحقاً):",
         "req_use_hint":      "الآن أدخل هذا الرمز في الحقل أدناه واضغط Unlock.",
         "req_full":          "اكتملت سعة النسخة التجريبية المجانية. الوصول المدفوع قادم قريباً — تم تسجيل بريدك وسنتواصل معك.",
+        "req_send_failed":   "تعذّر إرسال رمز الوصول الآن. يرجى التواصل مع الدعم لتفعيل وصولك.",
         "viz3d_header":      "خريطة الصفقات ثلاثية الأبعاد",
         "viz3d_caption":     "كل صفقة في فضاء ثلاثي الأبعاد: ساعة اليوم × يوم التداول × النتيجة. أدر وكبّر — التجمعات الحمراء تُظهر أين ينزف حسابك بالضبط.",
         "src_upload_banner": "مصدر التقرير: ملفك — {name} · {n} صفقة",
@@ -733,80 +735,10 @@ def compute_bazar_score(result: dict):
                    "discipline": round(discipline, 1), "data": round(data_score, 1)}
 
 
-def biggest_recoverable(insights):
-    """بزرگ‌ترین بهبود گذشته‌نگر از counterfactual یافته‌های معنادار (نه مشاهده‌ها)."""
-    best = None
-    for ins in insights:
-        snap = ins.get("metric_snapshot") or {}
-        if snap.get("observation"):
-            continue
-        cf = snap.get("counterfactual")
-        if not isinstance(cf, dict):
-            continue
-        try:
-            delta = float(cf.get("net_pnl_without_segment")) - float(cf.get("current_net_pnl"))
-        except (TypeError, ValueError):
-            continue
-        if delta > 0 and (best is None or delta > best[0]):
-            best = (delta, ins.get("insight_id", ""))
-    return best
-
-
-def _score_color(score: int) -> str:
-    return "#00E5A0" if score >= 70 else ("#FFB020" if score >= 40 else "#FF4757")
-
-
-def score_panel_html(score: int, parts: dict, recov, tx: dict) -> str:
-    """پنل نمره + کارت بازیابی — هم در اپ هم در گزارش HTML."""
-    c = _score_color(score)
-    recov_html = ""
-    if recov:
-        recov_html = (
-            f'<div style="background:#0D1117;border:1px solid #1C2530;border-top:2px solid #FFB020;'
-            f'border-radius:6px;padding:14px 20px;min-width:230px;flex:1">'
-            f'<div style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:1.5px;'
-            f'color:#5B6B7C;text-transform:uppercase">{safe(tx["recov_label"])}</div>'
-            f'<div style="font-family:JetBrains Mono,monospace;font-size:30px;font-weight:700;'
-            f'color:#FFB020;margin-top:4px">+{recov[0]:,.0f}$</div>'
-            f'<div style="font-size:11.5px;color:#5B6B7C;line-height:1.6;margin-top:6px">'
-            f'{safe(tx["recov_note"])}</div></div>')
-    return (
-        f'<div style="display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 16px 0">'
-        f'<div style="background:#0D1117;border:1px solid #1C2530;border-top:2px solid {c};'
-        f'border-radius:6px;padding:14px 20px;min-width:200px">'
-        f'<div style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:1.5px;'
-        f'color:#5B6B7C;text-transform:uppercase">{safe(tx["score_label"])}</div>'
-        f'<div style="font-family:JetBrains Mono,monospace;font-size:44px;font-weight:700;'
-        f'color:{c};line-height:1.1">{score}<span style="font-size:16px;color:#5B6B7C"> /100</span></div>'
-        f'<div style="font-family:JetBrains Mono,monospace;font-size:9.5px;color:#5B6B7C;margin-top:4px">'
-        f'EDGE {parts["edge"]} · CONSIST {parts["consistency"]} · DISCIPLINE {parts["discipline"]} · DATA {parts["data"]}</div>'
-        f'<div style="font-size:11px;color:#5B6B7C;line-height:1.6;margin-top:6px">{safe(tx["score_caption"])}</div>'
-        f'</div>{recov_html}</div>')
-
-
-def journey_html(tx: dict) -> str:
-    """نوار سفر سه‌مرحله‌ای — کاربر وسط مسیر است، نه آخرش."""
-    def step(label, state):
-        if state == "active":
-            bc, tc = "#00E5A0", "#EDF2F7"
-            badge = (f'<span style="color:#06140E;background:#00E5A0;border-radius:3px;'
-                     f'padding:1px 7px;font-size:9px;font-weight:700;letter-spacing:1px">'
-                     f'{safe(tx["journey_you"])}</span>')
-        else:
-            bc, tc = "#1C2530", "#5B6B7C"
-            badge = (f'<span style="color:#5B6B7C;border:1px solid #1C2530;border-radius:3px;'
-                     f'padding:1px 7px;font-size:9px;letter-spacing:1px">'
-                     f'{safe(tx["journey_locked"])}</span>')
-        return (f'<div style="flex:1;min-width:150px;background:#0D1117;border:1px solid {bc};'
-                f'border-radius:6px;padding:11px 14px">'
-                f'<div style="font-size:12.5px;font-weight:700;color:{tc};margin-bottom:5px">{safe(label)}</div>{badge}</div>')
-    return (
-        f'<div style="margin:18px 0 6px 0">'
-        f'<div style="font-family:JetBrains Mono,monospace;font-size:10px;letter-spacing:2px;'
-        f'color:#5B6B7C;text-transform:uppercase;margin-bottom:8px">{safe(tx["journey_title"])}</div>'
-        f'<div style="display:flex;gap:10px;flex-wrap:wrap">'
-        f'{step(tx["journey_1"], "active")}{step(tx["journey_2"], "locked")}{step(tx["journey_3"], "locked")}'
-        f'</div></div>')
+# RA-3 (Wave 0H): removed dead UI helpers `biggest_recoverable`, `_score_color`,
+# `score_panel_html`, `journey_html` — never called (the report uses
+# `journey_bar_html` from bazar_report_extras; the canonical score is rendered via
+# `compute_bazar_score` + `bazar_score_html`).
 
 
 # v2.0: متن‌های عمومی حالت observation (برای عربی که body استاتیک دارد + action فارسی/عربی)
@@ -903,7 +835,9 @@ table.cf th{color:#5B6B7C;font-size:10px;letter-spacing:1px}
 def build_report_html(result: dict, tx: dict, lang: str, trader_id: str, source: str) -> str:
     """گزارش کامل خودکفا برای کاربر نهایی — بدون نیاز به دانستن JSON."""
     # v2.1 psychological conversion layer
-    _score_html   = bazar_score_html(result, lang)
+    # D2 fix: route the report through the single canonical score formula.
+    _score_val, _ = compute_bazar_score(result)
+    _score_html   = bazar_score_html(result, lang, _score_val)
     _recover_html = recoverable_card_html(result.get("insights", []), lang)
     _equity_html  = equity_curve_html(result, lang)
     _journey_html = journey_bar_html(lang)
@@ -1026,34 +960,6 @@ def get_access_code() -> str:
     return os.getenv("BAZAR_ACCESS_CODE", DEFAULT_ACCESS_CODE).strip()
 
 
-def get_invite_codes() -> list:
-    """لیست مرتب کدهای دعوت: از st.secrets[INVITE_CODES] (جداشده با کاما) یا لیست پیش‌فرض."""
-    try:
-        if "INVITE_CODES" in st.secrets:
-            raw = str(st.secrets["INVITE_CODES"])
-            return [c.strip() for c in raw.split(",") if c.strip()]
-    except Exception:
-        pass
-    return list(DEFAULT_INVITE_CODES)
-
-
-def load_assignments() -> dict:
-    """نگاشت email → کد دعوت اختصاص‌یافته."""
-    try:
-        with open(ASSIGN_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
-
-
-def save_assignments(data: dict) -> None:
-    try:
-        with open(ASSIGN_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
-    except Exception:
-        pass
-
-
 def _send_access_code_email(email: str, code: str, lang: str = "en") -> bool:
     """v2.4: کد را به ایمیل می‌فرستد — True اگر موفق، False اگر شکست. از smtplib با credentials در secrets."""
     try:
@@ -1126,33 +1032,6 @@ The Bazar Audit Team""",
         return False
 
 
-def assign_code_for_email(email: str):
-    """v1.2: خروجی (status, code) — status یکی از new / exists / full.
-    برای ایمیل تکراری کد لو نمی‌رود (جلوگیری از برداشت کد دیگران با دانستن ایمیل)."""
-    em = email.strip().lower()
-    assignments = load_assignments()
-    if em in assignments and isinstance(assignments[em], dict):
-        return "exists", None
-    taken = {v["code"] for v in assignments.values() if isinstance(v, dict)}
-    for code in get_invite_codes():
-        if code not in taken:
-            assignments[em] = {
-                "code": code,
-                "assigned_at": datetime.now(timezone.utc).isoformat(),
-            }
-            save_assignments(assignments)
-            return "new", code
-    # ظرفیت تکمیل → ایمیل در لیست انتظار ثبت می‌شود تا برای دسترسی پولی تماس بگیریم.
-    wl = assignments.get("_waitlist", [])
-    if not isinstance(wl, list):
-        wl = []
-    if em not in wl:
-        wl.append(em)
-        assignments["_waitlist"] = wl
-        save_assignments(assignments)
-    return "full", None
-
-
 def _client_ip() -> str:
     """IP کلاینت از هدرها (روی Streamlit Cloud: X-Forwarded-For). لوکال = local."""
     try:
@@ -1163,28 +1042,13 @@ def _client_ip() -> str:
 
 
 def log_access(event: str, email: str = "", detail: str = "") -> None:
-    """ثبت رخدادهای امنیتی: درخواست کد، تلاش ورود، آپلود — برای بررسی ورود غیرمجاز."""
+    """ثبت رخدادهای امنیتی در StateStore بادوام (audit E1) — دیگر JSON محلی نیست.
+    امضای تابع حفظ شده تا call-site ها تغییر نکنند؛ ایمیل فقط به‌صورت hash ذخیره می‌شود."""
     try:
-        try:
-            with open(ACCESS_LOG_FILE, "r", encoding="utf-8") as f:
-                log = json.load(f)
-            if not isinstance(log, list):
-                log = []
-        except Exception:
-            log = []
-        raw_ip = _client_ip()
-        ip_val = raw_ip if raw_ip in ("local", "unknown") else hashlib.sha256(raw_ip.encode()).hexdigest()[:16]
-        log.append({
-            "ts":      datetime.now(timezone.utc).isoformat(),
-            "event":   event,
-            "email":   email.strip().lower(),
-            "detail":  detail,
-            "ip_hash": ip_val,  # فقط برای abuse detection — IP خام ذخیره نمی‌شود
-        })
-        with open(ACCESS_LOG_FILE, "w", encoding="utf-8") as f:
-            json.dump(log[-1000:], f, indent=2, ensure_ascii=False)
+        eh = email_hash(email) if email else "system"
+        _build_store().log_access_event(eh, event, {"detail": detail, "ip_hash": _ip_hash()})
     except Exception:
-        pass
+        pass  # logging must never break the request path
 
 
 def email_hash(email: str) -> str:
@@ -1192,66 +1056,65 @@ def email_hash(email: str) -> str:
     return hashlib.sha256(email.strip().lower().encode("utf-8")).hexdigest()
 
 
-def get_token_activation(code: str):
-    """v1.4: زمان اولین فعال‌سازی توکن (یا None اگر هنوز فعال نشده)."""
-    acts = load_assignments().get("_activations", {})
-    return acts.get(code) if isinstance(acts, dict) else None
+# ── Durable state store (audit E1) ────────────────────────────────────────────
+# RA-3 (Wave 0H): the pre-E1 JSON-model helpers (load/save_assignments,
+# assign_code_for_email, get_invite_codes, *_token, email_for_code,
+# email_bound_elsewhere, load/save_beta_usage) were removed — they were unused
+# since E1 and only risked re-wiring an ungated path. All entitlement state now
+# flows exclusively through the StateStore below.
+from bazar_state_store import get_state_store, StateStoreConfigError
 
 
-def activate_token(code: str) -> None:
-    """v1.4: ثبت اولین فعال‌سازی — فقط بار اول نوشته می‌شود."""
-    data = load_assignments()
-    acts = data.get("_activations")
-    if not isinstance(acts, dict):
-        acts = {}
-    if code not in acts:
-        acts[code] = datetime.now(timezone.utc).isoformat()
-        data["_activations"] = acts
-        save_assignments(data)
-
-
-def token_expired(code: str) -> bool:
-    """v1.4: توکن فعال‌شده‌ای که از پنجره ۲۴ ساعته خارج شده = سوخته."""
-    act = get_token_activation(code)
-    if not act:
-        return False
+def _secret(name: str, default=None):
+    """st.secrets[name] → env[name] → default (string or None)."""
     try:
-        t0 = datetime.fromisoformat(act)
-        return (datetime.now(timezone.utc) - t0).total_seconds() > TOKEN_TTL_HOURS * 3600
+        if name in st.secrets:
+            return str(st.secrets[name])
     except Exception:
-        return False
+        pass
+    return os.getenv(name, default)
 
 
-def email_for_code(code: str):
-    """v1.5: ایمیل ثبت‌نامی متصل به این کد دعوت (None اگر کد دستی توزیع شده)."""
-    for em, rec in load_assignments().items():
-        if isinstance(rec, dict) and rec.get("code") == code:
-            return em
-    return None
+def _l2_enabled() -> bool:
+    """L2 Playbook is INTERNAL-ONLY and OFF by default. It surfaces only when
+    ENABLE_L2_PLAYBOOK is truthy AND the viewer is admin — never for external users."""
+    return str(_secret("ENABLE_L2_PLAYBOOK", "false")).strip().lower() in ("1", "true", "yes", "on")
 
 
-def email_bound_elsewhere(eh: str, code: str, usage: dict) -> bool:
-    """v1.3: هر ایمیل فقط با یک کد دعوت — استفاده با کد دوم block می‌شود."""
-    for c, rec in usage.items():
-        if c != code and isinstance(rec, dict) and eh in rec.get("emails", []):
-            return True
-    return False
+@st.cache_resource(show_spinner=False)
+def _build_store():
+    """Construct the configured StateStore once per process. May raise
+    StateStoreConfigError (e.g. backend=supabase with missing secrets)."""
+    backend = (_secret("BAZAR_STATE_BACKEND", "sqlite") or "sqlite").strip().lower()
+    return get_state_store(
+        backend=backend,
+        sqlite_path=_secret("BAZAR_SQLITE_PATH"),
+        supabase_url=_secret("SUPABASE_URL"),
+        supabase_key=_secret("SUPABASE_SERVICE_ROLE_KEY") or _secret("SUPABASE_ANON_KEY"),
+    )
 
 
-def load_beta_usage() -> dict:
+def get_store():
+    """Return the durable StateStore, or FAIL CLOSED with a clear message
+    (no silent fall back to local JSON — audit E1)."""
     try:
-        with open(BETA_USAGE_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
+        return _build_store()
+    except StateStoreConfigError as e:
+        st.error("Access is disabled: the state backend is misconfigured. " + str(e))
+        st.stop()
 
 
-def save_beta_usage(usage: dict) -> None:
+def _ip_hash() -> str:
+    raw = _client_ip()
+    return raw if raw in ("local", "unknown") else hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
+def _ua_hash() -> str:
     try:
-        with open(BETA_USAGE_FILE, "w", encoding="utf-8") as f:
-            json.dump(usage, f, indent=2)
+        ua = str(st.context.headers.get("User-Agent", ""))
+        return hashlib.sha256(ua.encode()).hexdigest()[:16] if ua else ""
     except Exception:
-        pass  # روی Streamlit Cloud فایل‌سیستم موقتی است؛ برای production از DB استفاده شود.
+        return ""
 
 
 ENGINE_ERROR = None
@@ -1515,9 +1378,13 @@ with st.sidebar:
         st.code(", ".join(sorted(RECOMMENDED_COLS)))
     if st.session_state.get("is_admin"):
         with st.expander("ACCESS LOG — admin"):
+            # E1: events come from the durable StateStore, not a local JSON file.
             try:
-                with open(ACCESS_LOG_FILE, "r", encoding="utf-8") as f:
-                    st.json(json.load(f)[-20:])
+                _events = get_store().recent_events(20)
+                if _events:
+                    st.json(_events)
+                else:
+                    st.caption("no log yet")
             except Exception:
                 st.caption("no log yet")
     st.divider()
@@ -1547,23 +1414,20 @@ if not st.session_state.get("access_granted", False):
             if not email_ok:
                 st.warning(tx["beta_invalid_email"])
             else:
-                status, assigned = assign_code_for_email(req_email)
-                log_access("code_request", email=req_email, detail=status)
-                if status == "full":
-                    st.error(tx["req_full"])
-                elif status == "exists":
-                    # v1.2: به ایمیل تکراری کد لو نمی‌رود
-                    st.warning(tx["req_exists"])
+                # E1: durable, per-email, single-use code (hashed + expiring) via StateStore.
+                _res  = get_store().request_code(req_email, ip_hash=_ip_hash(),
+                                                 user_agent_hash=_ua_hash())
+                log_access("code_request", email=req_email)
+                _code = _res.get("code")
+                # E2 (Wave 0A) preserved: the code is handed only to the e-mail layer,
+                # never displayed or stored in the clear.
+                _sent = _send_access_code_email(req_email, _code, lang) if _code else False
+                if _sent:
+                    st.success(tx.get("req_code_sent", "Access code sent to your email."))
+                    st.info(tx["req_use_hint"])
                 else:
-                    # v2.4: کد روی صفحه نشان داده نمی‌شود — فقط ایمیل فرستاده می‌شود
-                    _sent = _send_access_code_email(req_email, assigned, lang)
-                    if _sent:
-                        st.success(tx.get("req_code_sent", "Access code sent to your email."))
-                        st.info(tx["req_use_hint"])
-                    else:
-                        st.success(tx["req_code_msg"])
-                        st.code(assigned)
-                        st.info(tx["req_use_hint"])
+                    log_access("code_send_failed", email=req_email)
+                    st.error(tx["req_send_failed"])
 
         # ── گام ۲: ورود با کد ──────────────────────────────────────────────────
         bz_section("02", "key", tx["access_title"])
@@ -1571,23 +1435,32 @@ if not st.session_state.get("access_granted", False):
         if st.button(tx["access_btn"], key="access_submit", type="primary"):
             entered = code_in.strip()
             _admin_code = get_access_code()
-            is_admin  = bool(entered) and bool(_admin_code) and entered == _admin_code
-            is_invite = bool(entered) and entered in get_invite_codes()
-            # v1.4: توکن یکبارمصرف — بعد از اولین فعال‌سازی فقط در پنجره ۲۴ ساعته کار می‌کند
-            if is_invite and token_expired(entered):
-                log_access("unlock_expired", detail=entered)
-                st.error(tx["code_expired"])
-            elif is_admin or is_invite:
-                if is_invite:
-                    activate_token(entered)
-                log_access("unlock_ok", detail=("admin" if is_admin else entered))
+            is_admin = bool(entered) and bool(_admin_code) and entered == _admin_code
+            if is_admin:
+                log_access("unlock_ok", detail="admin")
                 st.session_state["access_granted"] = True
-                st.session_state["is_admin"]      = is_admin
-                st.session_state["invite_code"]   = entered
+                st.session_state["is_admin"]       = True
+                st.session_state["verified_email"] = ""
                 st.rerun()
             else:
-                log_access("unlock_fail", detail=entered[:16])
-                st.error(tx["access_wrong"])
+                # E1: verify the one-time code against the email from Step 1.
+                _vemail = (st.session_state.get("req_email") or "").strip()
+                if not _vemail:
+                    st.error(tx["access_need_email"])
+                else:
+                    _vst = get_store().verify_code(_vemail, entered).get("status")
+                    if _vst == "ok":
+                        log_access("unlock_ok", email=_vemail)
+                        st.session_state["access_granted"] = True
+                        st.session_state["is_admin"]       = False
+                        st.session_state["verified_email"] = _vemail.strip().lower()
+                        st.rerun()
+                    elif _vst == "expired":
+                        log_access("unlock_expired", email=_vemail)
+                        st.error(tx["code_expired"])
+                    else:
+                        log_access("unlock_fail", email=_vemail, detail=_vst)
+                        st.error(tx["access_wrong"])
 
         st.markdown(
             '<div class="bz-status">'
@@ -1635,12 +1508,11 @@ if DEMO_MODE:
     bz_section("02", "upload", tx["beta_header"])
     st.caption(tx["beta_privacy"])
 
-    # وضعیت کد/سهمیه + v1.5: ایمیل آپلود قفل به ایمیل توکن
-    _code     = st.session_state.get("invite_code", "")
+    # وضعیت سهمیه — E1: یک گزارش رایگان به‌ازای هر ایمیل، state بادوام در StateStore.
     _is_admin = st.session_state.get("is_admin", False)
-    _usage    = load_beta_usage()
-    _used     = int(_usage.get(_code, {}).get("upload_count", 0))
-    _expected_email = None if _is_admin else email_for_code(_code)
+    _store    = get_store()
+    _expected_email = None if _is_admin else (st.session_state.get("verified_email") or None)
+    _used_free = (not _is_admin) and bool(_expected_email) and _store.has_used_free_report(_expected_email)
 
     col_e, col_u = st.columns([1, 2])
     with col_e:
@@ -1659,7 +1531,7 @@ if DEMO_MODE:
         st.session_state["view"] = "sample"
 
     if not _is_admin:
-        st.caption(tx["beta_quota_status"].format(used=_used, max=MAX_UPLOADS_PER_CODE))
+        st.caption(tx["beta_quota_status"].format(used=(1 if _used_free else 0), max=1))
 
     if beta_file is not None:
         email_ok = bool(beta_email) and "@" in beta_email and "." in beta_email.split("@")[-1]
@@ -1674,23 +1546,13 @@ if DEMO_MODE:
             st.warning(tx["beta_invalid_email"])
         elif beta_file.size > MAX_UPLOAD_MB * 1024 * 1024:
             st.error(tx["beta_file_too_big"])
-        elif not _is_admin and _used >= MAX_UPLOADS_PER_CODE:
-            st.error(tx["beta_quota_used"].format(max=MAX_UPLOADS_PER_CODE))
-            log_access("upload_blocked_quota", email=beta_email, detail=_code)
         elif not _is_admin and _expected_email and beta_email.strip().lower() != _expected_email:
-            # v1.5: آپلود فقط با همان ایمیل صاحب توکن
+            # v1.5: آپلود فقط با همان ایمیلی که کد را با آن تأیید کرده‌ای
             st.error(tx["beta_email_mismatch"])
-            log_access("upload_blocked_mismatch", email=beta_email, detail=_code)
-        elif (not _is_admin and not _expected_email
-              and _usage.get(_code, {}).get("emails")
-              and email_hash(beta_email) != _usage.get(_code, {}).get("emails", [None])[0]):
-            # v1.5: کد دستی — اولین ایمیل استفاده‌شده صاحب کد می‌شود
-            st.error(tx["beta_email_mismatch"])
-            log_access("upload_blocked_mismatch", email=beta_email, detail=_code)
-        elif not _is_admin and email_bound_elsewhere(email_hash(beta_email), _code, _usage):
-            # v1.3: ایمیل تکراری با کد دیگر = block (جلوگیری از چرخاندن یک ایمیل بین کدها)
-            st.error(tx["beta_email_bound"])
-            log_access("upload_blocked_email", email=beta_email, detail=_code)
+            log_access("upload_blocked_mismatch", email=beta_email)
+        elif _used_free:
+            st.error(tx["beta_already_used"])
+            log_access("upload_blocked_quota", email=beta_email)
         else:
             bdf = None
             try:
@@ -1703,25 +1565,20 @@ if DEMO_MODE:
                 if missing:
                     st.error(f"{tx['missing_required']}: `{', '.join(missing)}`")
                 else:
-                    now = datetime.now(timezone.utc).isoformat()
-                    rec = _usage.get(_code, {"upload_count": 0,
-                                             "first_upload_at": now,
-                                             "emails": []})
-                    rec["upload_count"] = int(rec.get("upload_count", 0)) + 1
-                    rec["last_upload_at"] = now
-                    eh = email_hash(beta_email)
-                    if eh not in rec.get("emails", []):
-                        rec.setdefault("emails", []).append(eh)
-                    _usage[_code] = rec
-                    save_beta_usage(_usage)
-                    st.session_state["beta_df"] = bdf.sort_values('open_time').reset_index(drop=True)
-                    st.session_state["beta_trader_id"] = beta_file.name.replace('.csv', '')
-                    st.session_state["last_upload_sig"] = sig
-                    st.session_state["view"] = "upload"
-                    # رفع ابهام منبع: بعد از آپلود موفق، انتخاب دموی قبلی پاک می‌شود
-                    st.session_state.active_sample = None
-                    log_access("upload_ok", email=beta_email,
-                               detail=f"{beta_file.name}|{len(bdf)} trades|code={_code}")
+                    # E1: durable one-free-report enforcement (atomic; admin is unlimited).
+                    _mark = "ok" if _is_admin else _store.mark_report_generated(beta_email).get("status")
+                    if _mark != "ok":
+                        st.error(tx["beta_already_used"])
+                        log_access("upload_blocked_quota", email=beta_email, detail=_mark)
+                    else:
+                        st.session_state["beta_df"] = bdf.sort_values('open_time').reset_index(drop=True)
+                        st.session_state["beta_trader_id"] = beta_file.name.replace('.csv', '')
+                        st.session_state["last_upload_sig"] = sig
+                        st.session_state["view"] = "upload"
+                        # رفع ابهام منبع: بعد از آپلود موفق، انتخاب دموی قبلی پاک می‌شود
+                        st.session_state.active_sample = None
+                        log_access("upload_ok", email=beta_email,
+                                   detail=f"{beta_file.name}|{len(bdf)} trades")
 
     # ── انتخاب منبع نمایش: آپلود کاربر یا پروفایل نمونه ──────────────────────
     view = st.session_state.get("view")
@@ -1745,34 +1602,15 @@ if DEMO_MODE:
         st.stop()
 
 else:
-    uploaded = st.file_uploader(tx["upload_label"], type=["csv"])
-    if uploaded is None:
-        with st.expander(tx["upload_format"]):
-            sample = pd.DataFrame([{
-                "trade_id": "T001", "open_time": "2024-01-05 09:00:00",
-                "close_time": "2024-01-05 09:45:00", "symbol": "EURUSD",
-                "side": "BUY", "pnl": 120.5, "pnl_R": 1.2,
-                "session": "London", "lot_or_size": 0.1,
-            }])
-            st.dataframe(sample)
-        st.stop()
-    try:
-        df = pd.read_csv(uploaded, parse_dates=['open_time', 'close_time'])
-        df = df.sort_values('open_time').reset_index(drop=True)
-    except Exception as e:
-        st.error(tx["csv_not_readable"])
-        st.exception(e)
-        st.stop()
-    missing_req = sorted(REQUIRED_COLS - set(df.columns))
-    if missing_req:
-        st.error(f"{tx['missing_required']}: `{', '.join(missing_req)}`")
-        st.stop()
-    missing_rec = sorted(RECOMMENDED_COLS - set(df.columns))
-    if missing_rec:
-        with st.expander(f"⚠️ {tx['missing_recommended']}"):
-            st.warning(f"`{', '.join(missing_rec)}`")
-    trader_id = uploaded.name.replace('.csv', '')
-    source = "upload"
+    # D5 fix: the legacy direct-upload path lived here, but it predated the E1
+    # StateStore and did NOT enforce the one-free-report quota — making it
+    # reachable would bypass entitlement. It is intentionally disabled (fail
+    # closed) so there is a single, gated upload path (the DEMO_MODE branch above,
+    # which routes through get_store().has_used_free_report / mark_report_generated).
+    # To support real non-demo uploads, re-implement here THROUGH that same gate —
+    # do not restore the old ungated flow.
+    st.error("Direct upload mode is not enabled in this build.")
+    st.stop()
 
 # ── Run Engine ────────────────────────────────────────────────────────────────
 with st.spinner(tx["analyzing"]):
@@ -1819,11 +1657,14 @@ with tab_report:
     # ── v1.3: گزارش کامل تک‌کلیکی برای کاربر نهایی (HTML خودکفا) ───────────────
     try:
         # attach raw series for equity curve (v2.3)
+        # D1 fix: use the analyzed frame `df` directly. The old code referenced an
+        # unset session key and an undefined local (`beta_df`), so the resulting
+        # NameError was silently swallowed and the equity curve was always empty.
         try:
-            _audit_df = st.session_state.get("uploaded_df") or beta_df
-            if _audit_df is not None:
-                result["pnl_series"] = _audit_df["pnl"].tolist()
-                result["trade_meta"] = _audit_df[["session", "symbol"]].to_dict(orient="records")
+            if "pnl" in df.columns:
+                result["pnl_series"] = df["pnl"].tolist()
+                if {"session", "symbol"}.issubset(df.columns):
+                    result["trade_meta"] = df[["session", "symbol"]].to_dict(orient="records")
         except Exception:
             pass
         _full_report = build_report_html(result, tx, lang, trader_id, source)
@@ -2006,3 +1847,20 @@ if tab_json is not None:
             file_name=f"bazar_audit_{trader_id}.json",
             mime="application/json",
         )
+
+        # ── L2 Playbook preview — INTERNAL ONLY, feature-flagged (default OFF) ──
+        # Admin-only tab + ENABLE_L2_PLAYBOOK gate → zero change to external/public
+        # behavior. Wrapped so an L2 issue can never break the audit page.
+        if _l2_enabled():
+            try:
+                from bazar_playbook import generate_playbook, render_playbook, validate_playbook
+                _pb = generate_playbook(result)
+                _pb_dict = _pb.to_dict()
+                _pb_dict["generated_at"] = datetime.now(timezone.utc).isoformat()  # caller stamps
+                validate_playbook(_pb_dict)
+                with st.expander("🧪 L2 Playbook (internal preview — not shown to users)", expanded=False):
+                    st.caption(f"license: {_pb_dict['license']} · confidence: {_pb_dict['confidence']}")
+                    st.markdown(render_playbook(_pb_dict, lang))
+                    st.json(_pb_dict)
+            except Exception as e:
+                st.caption(f"L2 preview unavailable: {e}")
