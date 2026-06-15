@@ -14,6 +14,10 @@ beta_usage.json
 code_assignments.json
 access_log.json
 *.uploaded.csv
+# E1: local/dev SQLite state store (never committed; not durable on Streamlit Cloud)
+bazar_state.db
+bazar_state.db-wal
+bazar_state.db-shm
 
 # اسناد داخلی حاوی کد/استراتژی — هرگز push نشوند
 BAZAR_UPGRADE_REPORT.md

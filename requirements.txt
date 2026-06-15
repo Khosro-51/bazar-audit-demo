@@ -2,3 +2,6 @@ streamlit>=1.32.0
 pandas>=2.0.0
 numpy>=1.26.0
 plotly>=5.18.0
+# Durable state backend (audit E1). Only imported when BAZAR_STATE_BACKEND=supabase
+# (production/cloud). The default SQLite dev backend needs nothing beyond stdlib.
+supabase>=2.0.0
