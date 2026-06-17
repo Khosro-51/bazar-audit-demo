@@ -1478,21 +1478,11 @@ if not st.session_state.get("access_granted", False):
                 # E2 (Wave 0A) preserved: the code is handed only to the e-mail layer,
                 # never displayed or stored in the clear.
                 _sent = _send_access_code_email(req_email, _code, lang) if _code else False
-                _method = st.session_state.get("_email_method", "")
-                _resend_err = st.session_state.get("_resend_error", "")
                 if _sent:
                     st.success(tx.get("req_code_sent", "Access code sent to your email."))
                     st.info(tx["req_use_hint"])
-                    # نشان دادن روش ارسال برای admin
-                    if st.session_state.get("is_admin") or True:  # debug: همیشه نشان بده
-                        if _method == "smtp_fallback" and _resend_err:
-                            st.warning(f"⚠️ Resend failed → SMTP used as fallback.\n\n**Resend error:** `{_resend_err}`")
-                        elif _method == "resend":
-                            st.caption("✅ Sent via Resend")
                 else:
                     log_access("code_send_failed", email=req_email)
-                    if _resend_err:
-                        st.error(f"Resend error: `{_resend_err}`")
                     st.error(tx["req_send_failed"])
 
         # ── گام ۲: ورود با کد ──────────────────────────────────────────────────
