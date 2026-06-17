@@ -48,69 +48,90 @@ MAX_UPLOAD_MB   = 5
 
 # ── صحنه سه‌بعدی صفحه ورود (Three.js) ────────────────────────────────────────
 HERO_3D = """
-<div id="bz3d" style="width:100%;height:300px;background:#07090C;border:1px solid #1C2530;
-     border-radius:8px;overflow:hidden;position:relative">
+<div id="bz3d" style="width:100%;height:300px;
+     background:radial-gradient(ellipse at 30% 60%, rgba(123,97,255,0.08) 0%, #07090C 60%);
+     border:1px solid rgba(0,255,179,0.2);border-radius:12px;overflow:hidden;position:relative;
+     box-shadow:0 0 40px rgba(0,255,179,0.06), inset 0 1px 0 rgba(255,255,255,0.04)">
   <div style="position:absolute;top:14px;left:18px;font-family:monospace;font-size:10px;
-       letter-spacing:3px;color:#00E5A0;z-index:2;opacity:.9">BAZAR · LIVE DIAGNOSTIC SPACE</div>
+       letter-spacing:4px;color:#00FFB3;z-index:2;opacity:.9;
+       text-shadow:0 0 15px rgba(0,255,179,0.6)">BAZAR · LIVE DIAGNOSTIC SPACE</div>
   <div style="position:absolute;bottom:12px;right:18px;font-family:monospace;font-size:9px;
-       letter-spacing:2px;color:#5B6B7C;z-index:2">EDGE · RISK · BEHAVIOR</div>
+       letter-spacing:2px;color:rgba(123,97,255,0.7);z-index:2">EDGE · RISK · BEHAVIOR</div>
+  <div style="position:absolute;top:14px;right:18px;font-family:monospace;font-size:9px;
+       letter-spacing:1px;color:rgba(0,255,179,0.4);z-index:2">⬤ ONLINE</div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 const el = document.getElementById('bz3d');
 const W = el.clientWidth, H = el.clientHeight;
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x07090C, 18, 42);
+scene.fog = new THREE.Fog(0x07090C, 18, 45);
 const cam = new THREE.PerspectiveCamera(60, W/H, .1, 100);
 cam.position.set(0, 3.2, 16);
-const ren = new THREE.WebGLRenderer({antialias:true});
-ren.setSize(W, H); ren.setClearColor(0x07090C);
+const ren = new THREE.WebGLRenderer({antialias:true, alpha:true});
+ren.setSize(W, H); ren.setClearColor(0x07090C, 0);
 el.appendChild(ren.domElement);
 
-// کف شبکه‌ای پرسپکتیو
-const grid = new THREE.GridHelper(80, 50, 0x00E5A0, 0x10271F);
+// کف شبکه‌ای با رنگ نئون
+const grid = new THREE.GridHelper(80, 50, 0x00FFB3, 0x0D1520);
 grid.position.y = -4; scene.add(grid);
 
-// هسته سیمی دولایه (مغز تحلیلگر)
+// هسته سبز نئون
 const ico = new THREE.Mesh(
   new THREE.IcosahedronGeometry(3.4, 1),
-  new THREE.MeshBasicMaterial({color:0x00E5A0, wireframe:true, transparent:true, opacity:.55}));
+  new THREE.MeshBasicMaterial({color:0x00FFB3, wireframe:true, transparent:true, opacity:.65}));
 scene.add(ico);
+
+// پوسته بیرونی بنفش (جدید)
 const ico2 = new THREE.Mesh(
-  new THREE.IcosahedronGeometry(4.6, 0),
-  new THREE.MeshBasicMaterial({color:0x0E4534, wireframe:true, transparent:true, opacity:.35}));
+  new THREE.IcosahedronGeometry(4.8, 0),
+  new THREE.MeshBasicMaterial({color:0x7B61FF, wireframe:true, transparent:true, opacity:.3}));
 scene.add(ico2);
 
-// ذرات معلق داده
-const N=900, pos=new Float32Array(N*3);
-for(let i=0;i<N*3;i++) pos[i]=(Math.random()-.5)*46;
+// حلقه سوم سیمی
+const ico3 = new THREE.Mesh(
+  new THREE.IcosahedronGeometry(6.0, 1),
+  new THREE.MeshBasicMaterial({color:0x00FFB3, wireframe:true, transparent:true, opacity:.08}));
+scene.add(ico3);
+
+// ذرات معلق داده — دو رنگ
+const N=1200, pos=new Float32Array(N*3), clr=new Float32Array(N*3);
+for(let i=0;i<N;i++){
+  pos[i*3]=(Math.random()-.5)*50;
+  pos[i*3+1]=(Math.random()-.5)*50;
+  pos[i*3+2]=(Math.random()-.5)*50;
+  if(Math.random()>.7){clr[i*3]=0.48;clr[i*3+1]=0.38;clr[i*3+2]=1.0;} // بنفش
+  else{clr[i*3]=0.0;clr[i*3+1]=1.0;clr[i*3+2]=0.70;} // سبز نئون
+}
 const pg=new THREE.BufferGeometry();
-pg.setAttribute('position', new THREE.BufferAttribute(pos,3));
-const pts=new THREE.Points(pg, new THREE.PointsMaterial({color:0x00E5A0,size:.07,transparent:true,opacity:.5}));
+pg.setAttribute('position',new THREE.BufferAttribute(pos,3));
+pg.setAttribute('color',new THREE.BufferAttribute(clr,3));
+const pts=new THREE.Points(pg,new THREE.PointsMaterial({size:.09,vertexColors:true,transparent:true,opacity:.65}));
 scene.add(pts);
 
-// حلقه کندل‌های سه‌بعدی دور هسته
+// کندل‌های سه‌بعدی با گلوی نئون
 const bars = new THREE.Group();
-for(let i=0;i<36;i++){
-  const h = .6+Math.random()*2.6;
+for(let i=0;i<40;i++){
+  const h = .5+Math.random()*3;
   const up = Math.random()>.45;
-  const m = new THREE.Mesh(new THREE.BoxGeometry(.18,h,.18),
-    new THREE.MeshBasicMaterial({color: up?0x00E5A0:0xFF4757, transparent:true, opacity:.8}));
-  const a = i/36*Math.PI*2;
-  m.position.set(Math.cos(a)*7.5, -4+h/2, Math.sin(a)*7.5);
+  const m = new THREE.Mesh(new THREE.BoxGeometry(.16,h,.16),
+    new THREE.MeshBasicMaterial({color:up?0x00FFB3:0xFF4757, transparent:true, opacity:.85}));
+  const a = i/40*Math.PI*2;
+  m.position.set(Math.cos(a)*7.8, -4+h/2, Math.sin(a)*7.8);
   bars.add(m);
 }
 scene.add(bars);
 
 let t=0;
 function loop(){
-  requestAnimationFrame(loop);
-  t+=.004;
-  ico.rotation.y=t*1.6; ico.rotation.x=t*.7;
-  ico2.rotation.y=-t;   ico2.rotation.x=t*.4;
-  pts.rotation.y=t*.25;
+  requestAnimationFrame(loop); t+=.004;
+  ico.rotation.y=t*1.6;  ico.rotation.x=t*.7;
+  ico2.rotation.y=-t*.8; ico2.rotation.x=t*.4;
+  ico3.rotation.y=t*.3;  ico3.rotation.z=t*.2;
+  pts.rotation.y=t*.2;
   bars.rotation.y=t*.5;
-  cam.position.x=Math.sin(t*.6)*1.2;
+  cam.position.x=Math.sin(t*.6)*1.5;
+  cam.position.y=3.2+Math.sin(t*.3)*.3;
   cam.lookAt(0,0,0);
   ren.render(scene,cam);
 }
@@ -121,11 +142,15 @@ window.addEventListener('resize',()=>{const w=el.clientWidth;ren.setSize(w,H);ca
 
 # ── بنر زنده Matrix Rain صفحه اصلی (v1.3) ────────────────────────────────────
 MATRIX_BG = """
-<div id="bzmx" style="position:relative;width:100%;height:280px;background:#07090C;
-     border:1px solid #1C2530;border-radius:8px;overflow:hidden">
+<div id="bzmx" style="position:relative;width:100%;height:280px;
+     background:radial-gradient(ellipse at 70% 40%, rgba(123,97,255,0.06) 0%, #07090C 70%);
+     border:1px solid rgba(0,255,179,0.15);border-radius:12px;overflow:hidden;
+     box-shadow:0 0 30px rgba(0,255,179,0.04)">
   <canvas id="mx" style="display:block"></canvas>
   <div style="position:absolute;top:14px;left:18px;font-family:monospace;font-size:10px;
-       letter-spacing:3px;color:#00E5A0;opacity:.9">BAZAR · DIAGNOSTIC RAIN</div>
+       letter-spacing:4px;color:#00FFB3;opacity:.9;text-shadow:0 0 15px rgba(0,255,179,0.5)">BAZAR · DIAGNOSTIC RAIN</div>
+  <div style="position:absolute;top:14px;right:18px;font-family:monospace;font-size:9px;
+       letter-spacing:2px;color:rgba(123,97,255,0.6)">NEURAL · SCAN</div>
 </div>
 <script>
 const wrap=document.getElementById('bzmx'),cv=document.getElementById('mx'),ctx=cv.getContext('2d');
@@ -138,34 +163,35 @@ const MSGS=['> audit.kernel online','> session.toxicity probe','> symbol.edge co
             '> expectancy.R stream','> power.check permutation','> audit.pipeline OK'];
 let drops=[],cols=[],term=['BAZAR://init diagnostic core','> edge.scan OK'],tick=0;
 function loop(){
-  ctx.fillStyle='rgba(7,9,12,.18)';ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='rgba(7,9,12,.16)';ctx.fillRect(0,0,W,H);
   tick++;
-  if(tick%3===0)drops.push({x:Math.random()*W,y:-10,v:4+Math.random()*5});
-  // باران
-  ctx.strokeStyle='rgba(0,229,160,.55)';ctx.lineWidth=1;
+  if(tick%3===0)drops.push({x:Math.random()*W,y:-10,v:4+Math.random()*6,purple:Math.random()>.75});
+  // باران — سبز و بنفش
   drops=drops.filter(d=>{
-    ctx.beginPath();ctx.moveTo(d.x,d.y-8);ctx.lineTo(d.x,d.y);ctx.stroke();
+    ctx.strokeStyle=d.purple?'rgba(123,97,255,.5)':'rgba(0,255,179,.55)';
+    ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(d.x,d.y-10);ctx.lineTo(d.x,d.y);ctx.stroke();
     d.y+=d.v;
     if(d.y>=GROUND()){
-      cols.push({x:d.x,y:0,sp:2+Math.random()*2.5,len:6+(Math.random()*14|0),life:140+Math.random()*100});
+      cols.push({x:d.x,y:0,sp:2+Math.random()*2.5,len:6+(Math.random()*14|0),life:140+Math.random()*100,purple:d.purple});
       return false;}
     return true;});
   // ستون‌های کد ماتریکس
   ctx.font='12px monospace';
   cols=cols.filter(c=>{
-    ctx.fillStyle='#9FFFDE';
+    ctx.fillStyle=c.purple?'#C4B5FF':'#9FFFDE';
     ctx.fillText(CHARS[Math.random()*CHARS.length|0],c.x,Math.min(c.y,GROUND()-2));
-    ctx.fillStyle='rgba(0,229,160,.8)';
+    ctx.fillStyle=c.purple?'rgba(123,97,255,.8)':'rgba(0,255,179,.8)';
     for(let i=1;i<c.len;i++){const yy=c.y-i*13;
       if(yy>0&&yy<GROUND())ctx.fillText(CHARS[(tick+i)%CHARS.length],c.x,yy);}
     c.y+=c.sp;c.life--;return c.life>0;});
-  // ترمینال درخشان پایین
+  // ترمینال درخشان
   const gy=GROUND();
-  ctx.fillStyle='rgba(5,7,10,.92)';ctx.fillRect(0,gy,W,TERM_H);
-  ctx.strokeStyle='rgba(0,229,160,.6)';ctx.strokeRect(.5,gy+.5,W-1,TERM_H-1);
+  ctx.fillStyle='rgba(5,7,10,.94)';ctx.fillRect(0,gy,W,TERM_H);
+  ctx.strokeStyle='rgba(0,255,179,.5)';ctx.lineWidth=1;ctx.strokeRect(.5,gy+.5,W-1,TERM_H-1);
   if(tick%90===0){term.push(MSGS[(tick/90|0)%MSGS.length]);if(term.length>5)term.shift();}
-  ctx.shadowColor='#00E5A0';ctx.shadowBlur=10;
-  ctx.fillStyle='#00E5A0';ctx.font='11px monospace';
+  ctx.shadowColor='#00FFB3';ctx.shadowBlur=12;
+  ctx.fillStyle='#00FFB3';ctx.font='11px monospace';
   term.forEach((l,i)=>ctx.fillText(l,12,gy+18+i*14));
   ctx.shadowBlur=0;
   requestAnimationFrame(loop);
