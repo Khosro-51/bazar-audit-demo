@@ -329,6 +329,12 @@ class SupabaseStateStore(StateStore):
         if not url or not key:
             raise StateStoreConfigError(
                 "SupabaseStateStore requires both a URL and a service/anon key.")
+        # Normalize URL: strip trailing slashes and any accidentally appended
+        # REST path (e.g. ".../rest/v1") — supabase-py appends its own path
+        # prefix; a double slash or duplicated prefix causes PGRST125.
+        url = url.rstrip("/")
+        if url.endswith("/rest/v1"):
+            url = url[: -len("/rest/v1")]
         try:
             from supabase import create_client  # imported lazily so dev/tests need no dep
         except Exception as e:  # pragma: no cover - exercised only in prod installs
