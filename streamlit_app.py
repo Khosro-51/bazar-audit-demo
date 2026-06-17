@@ -1006,9 +1006,12 @@ The Bazar Audit Team""",
 
 def _send_via_resend(to_email: str, code: str, lang: str) -> bool:
     """ارسال از طریق Resend API — اگر RESEND_API_KEY در secrets باشد فعال می‌شود."""
+    # ابتدا خطای قبلی را پاک می‌کنیم
+    st.session_state.pop("_resend_error", None)
     try:
         api_key = _secret("RESEND_API_KEY", "")
         if not api_key:
+            st.session_state["_resend_error"] = "RESEND_API_KEY not found in secrets."
             return False
         import resend  # noqa: PLC0415
         resend.api_key = api_key
@@ -1021,7 +1024,10 @@ def _send_via_resend(to_email: str, code: str, lang: str) -> bool:
             "text":    body,
         })
         return True
-    except Exception:
+    except Exception as _re:
+        # ارور واقعی را در session_state ذخیره می‌کنیم تا در UI قابل نمایش باشد
+        st.session_state["_resend_error"] = str(_re)
+        log_access("resend_send_error", detail=str(_re)[:300])
         return False
 
 
@@ -1064,8 +1070,14 @@ def _send_access_code_email(email: str, code: str, lang: str = "en") -> bool:
     در غیر این صورت به SMTP قدیمی fall back می‌کند.
     هر دو روش از همان متن ایمیل سه‌زبانه استفاده می‌کنند."""
     if _send_via_resend(email, code, lang):
+        st.session_state["_email_method"] = "resend"
         return True
-    return _send_via_smtp(email, code, lang)
+    # Resend شکست خورد — به SMTP برمی‌گردیم
+    if _send_via_smtp(email, code, lang):
+        st.session_state["_email_method"] = "smtp_fallback"
+        return True
+    st.session_state["_email_method"] = "failed"
+    return False
 
 
 
@@ -1466,11 +1478,21 @@ if not st.session_state.get("access_granted", False):
                 # E2 (Wave 0A) preserved: the code is handed only to the e-mail layer,
                 # never displayed or stored in the clear.
                 _sent = _send_access_code_email(req_email, _code, lang) if _code else False
+                _method = st.session_state.get("_email_method", "")
+                _resend_err = st.session_state.get("_resend_error", "")
                 if _sent:
                     st.success(tx.get("req_code_sent", "Access code sent to your email."))
                     st.info(tx["req_use_hint"])
+                    # نشان دادن روش ارسال برای admin
+                    if st.session_state.get("is_admin") or True:  # debug: همیشه نشان بده
+                        if _method == "smtp_fallback" and _resend_err:
+                            st.warning(f"⚠️ Resend failed → SMTP used as fallback.\n\n**Resend error:** `{_resend_err}`")
+                        elif _method == "resend":
+                            st.caption("✅ Sent via Resend")
                 else:
                     log_access("code_send_failed", email=req_email)
+                    if _resend_err:
+                        st.error(f"Resend error: `{_resend_err}`")
                     st.error(tx["req_send_failed"])
 
         # ── گام ۲: ورود با کد ──────────────────────────────────────────────────
