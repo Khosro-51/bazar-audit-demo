@@ -960,29 +960,15 @@ def get_access_code() -> str:
     return os.getenv("BAZAR_ACCESS_CODE", DEFAULT_ACCESS_CODE).strip()
 
 
-def _send_access_code_email(email: str, code: str, lang: str = "en") -> bool:
-    """v2.4: کد را به ایمیل می‌فرستد — True اگر موفق، False اگر شکست. از smtplib با credentials در secrets."""
-    try:
-        import smtplib
-        from email.mime.text import MIMEText
-        from email.mime.multipart import MIMEMultipart
-
-        smtp_host = st.secrets.get("SMTP_HOST", "")
-        smtp_port = int(st.secrets.get("SMTP_PORT", 587))
-        smtp_user = st.secrets.get("SMTP_USER", "")
-        smtp_pass = st.secrets.get("SMTP_PASS", "")
-        from_addr = st.secrets.get("SMTP_FROM", smtp_user)
-
-        if not smtp_host or not smtp_user or not smtp_pass:
-            return False  # secrets تنظیم نشده
-
-        subjects = {
-            "en": "Your Bazar Audit Access Code",
-            "fa": "کد دسترسی Bazar Audit شما",
-            "ar": "رمز وصولك إلى Bazar Audit",
-        }
-        bodies = {
-            "en": f"""Hi,
+def _build_email_content(code: str, lang: str) -> tuple[str, str]:
+    """متن و موضوع ایمیل به سه زبان — مشترک بین Resend و SMTP."""
+    subjects = {
+        "en": "Your Bazar Audit Access Code",
+        "fa": "کد دسترسی Bazar Audit شما",
+        "ar": "رمز وصولك إلى Bazar Audit",
+    }
+    bodies = {
+        "en": f"""Hi,
 
 Your private beta access request has been approved.
 
@@ -997,7 +983,7 @@ Bazar does not provide buy/sell signals or financial advice.
 It analyzes trading behavior, risk patterns, and strategy structure.
 
 The Bazar Audit Team""",
-            "fa": f"""سلام،
+        "fa": f"""سلام،
 
 درخواست دسترسی بتای شما تأیید شد.
 کد زیر را برای ورود به Bazar Audit وارد کنید:
@@ -1006,7 +992,7 @@ The Bazar Audit Team""",
 
 این کد فقط یک‌بار قابل استفاده است.
 تیم Bazar Audit""",
-            "ar": f"""مرحباً،
+        "ar": f"""مرحباً،
 
 تمت الموافقة على طلب وصولك. استخدم الرمز أدناه للدخول:
 
@@ -1014,22 +1000,73 @@ The Bazar Audit Team""",
 
 هذا الرمز للاستخدام مرة واحدة فقط.
 فريق Bazar Audit""",
-        }
+    }
+    return subjects.get(lang, subjects["en"]), bodies.get(lang, bodies["en"])
 
+
+def _send_via_resend(to_email: str, code: str, lang: str) -> bool:
+    """ارسال از طریق Resend API — اگر RESEND_API_KEY در secrets باشد فعال می‌شود."""
+    try:
+        api_key = _secret("RESEND_API_KEY", "")
+        if not api_key:
+            return False
+        import resend  # noqa: PLC0415
+        resend.api_key = api_key
+        from_addr = _secret("RESEND_FROM", _secret("SMTP_FROM", "Bazar Audit <onboarding@resend.dev>"))
+        subject, body = _build_email_content(code, lang)
+        resend.Emails.send({
+            "from":    from_addr,
+            "to":      [to_email],
+            "subject": subject,
+            "text":    body,
+        })
+        return True
+    except Exception:
+        return False
+
+
+def _send_via_smtp(to_email: str, code: str, lang: str) -> bool:
+    """ارسال از طریق SMTP — fallback اگر Resend تنظیم نشده یا شکست خورد."""
+    try:
+        import smtplib
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+
+        smtp_host = _secret("SMTP_HOST", "")
+        smtp_port = int(_secret("SMTP_PORT", "587") or 587)
+        smtp_user = _secret("SMTP_USER", "")
+        smtp_pass = _secret("SMTP_PASS", "")
+        from_addr = _secret("SMTP_FROM", smtp_user)
+
+        if not smtp_host or not smtp_user or not smtp_pass:
+            return False
+
+        subject, body = _build_email_content(code, lang)
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = subjects.get(lang, subjects["en"])
+        msg["Subject"] = subject
         msg["From"]    = from_addr
-        msg["To"]      = email
-        msg.attach(MIMEText(bodies.get(lang, bodies["en"]), "plain", "utf-8"))
+        msg["To"]      = to_email
+        msg.attach(MIMEText(body, "plain", "utf-8"))
 
         with smtplib.SMTP(smtp_host, smtp_port) as srv:
             srv.ehlo()
             srv.starttls()
             srv.login(smtp_user, smtp_pass)
-            srv.sendmail(from_addr, [email], msg.as_string())
+            srv.sendmail(from_addr, [to_email], msg.as_string())
         return True
     except Exception:
         return False
+
+
+def _send_access_code_email(email: str, code: str, lang: str = "en") -> bool:
+    """v2.5: ارسال کد دسترسی — Resend (اول) → SMTP (fallback).
+    اگر RESEND_API_KEY در secrets باشد، Resend استفاده می‌شود.
+    در غیر این صورت به SMTP قدیمی fall back می‌کند.
+    هر دو روش از همان متن ایمیل سه‌زبانه استفاده می‌کنند."""
+    if _send_via_resend(email, code, lang):
+        return True
+    return _send_via_smtp(email, code, lang)
+
 
 
 def _client_ip() -> str:
